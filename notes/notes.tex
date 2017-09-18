@@ -1,0 +1,102 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{researchpack}
+
+\title{Interactive Explanations for Coactive Learning}
+\author{--}
+
+\usepackage{xcolor}
+\newcommand{\stefano}[1]{{\bf \textcolor{violet}{{[Stefano: #1]}}}}
+\newcommand{\lime}{\textsc{lime}}
+\newcommand{\cola}{\textsc{mojito}}
+
+\begin{document}
+\maketitle
+
+\paragraph{Setting.} Given:
+
+\begin{itemize}
+
+    \item a dataset $\calD = \{ x_1, \ldots, x_n \} \subseteq \calX$
+
+    \item a set of labels $\calY$
+
+    \item a target function $f^* : \calX \to \calY$ \stefano{or a joint distrib.}
+
+    \item an \textbf{interpretable (joint) feature map} $\vpsi(x,y)$
+
+        e.g. in document classification it could map documents to their
+        1-grams; in image classification it could map images to
+        super-pixels; in food recommendation it could map products to
+        simple flavors
+
+    \item a class of \textbf{uninterpretable} models $\calF = \{ f : \calX \to \calY \}$
+
+    \item a class of \textbf{interpretable} models $\calG = \{ g : \calX \to \calY \}$
+
+        As in \lime~\cite{ribeiro2016should}, we target linear
+        classifiers only:
+        %
+        $$ g(x) = \argmax_{y\in\calY} \inner{w}{\vpsi(x,y)} $$
+
+    \item an \textbf{active learner} providing three methods:
+
+        \begin{itemize}
+            \item $x \gets \textsc{SelectQuery}(f,\calD)$
+            \item $y \gets \textsc{Infer}(f,x)$
+            \item $f' \gets \textsc{Update}(f,x,y,\bar{y})$
+        \end{itemize}
+
+    \item an \textbf{interpretable model generator} (e.g.~\lime)
+        providing a method:
+
+        \begin{itemize}
+            \item $g \gets \textsc{Explain}(f,x,[y])$
+        \end{itemize}
+
+\end{itemize}
+
+Goal: learn an estimate $f$ of $f^*$ by interating with the user via coactive
+learning, providing candidate predictions and their explanation at each
+iteration. The user is free to improve the candidate prediction (and
+potentially the accompanying explanation).
+
+\paragraph{Algorithm template.} See Algorithm~\ref{alg:cola}.
+
+\begin{algorithm*}[t]
+    \caption{\label{alg:cola} The \cola\ algorithm.}
+    \begin{algorithmic}[1]
+        \Procedure{\cola}{$\calD$, $\vpsi$, $T$}
+            \State $f^1 \gets \text{initial model}$
+            \For{ $t = 1, \dots, T$ }
+                \State $x^t \gets \textsc{SelectQuery}(f^t, \calD)$
+                \State $y^t \gets \textsc{Infer}(f^t, x^t)$
+                \State $g^t \gets \textsc{Explain}(f^t, x^t,[y^t])$
+                \State Present $x^t$, $y^t$ and explanation of $g^t$ to the user
+                \State $\bar{y}^t, \bar{g}^t \gets \text{Observe user's feedback}$
+                \State $f^{t+1} \gets \textsc{Update}(f^t,x^t,y^t,\bar{y}^t,[g^t,\bar{g}^t])$
+            \EndFor
+            \State $\textbf{return} f^{T+1}$
+        \EndProcedure
+    \end{algorithmic}
+\end{algorithm*}
+
+\paragraph{Coactive Learning.} Coactive learning~\cite{shivaswamy2015coactive}
+is an interactive learning framework whereby, at each iteration, the learner
+presents a prediction $y^t$ of some example $x^t$ to the user, and the user
+produces an improved prediction $\bar{y}^t$ (if possible). Learning relies on
+the fact that $\bar{y}^t$ is a better prediction than $y^t$, which induces a
+``ranking constraint'' among predictions.
+
+The main difference with respect to active learning (see
+\cite{settles2010active} for an in-depth survey) is that the learner presents
+the user both an example $x^t$ and a prediction $y^t$; on the contrary, in
+active learning only $x^t$ is presented. In other words, active learning does
+not aim at ``explaining'' the current prediction of the classifier to the
+annotator.
+
+The candidate prediction $y^t$ is useful because the explanation is based on
+it.
+
+\bibliographystyle{unsrt}
+\bibliography{notes}
+\end{document}
