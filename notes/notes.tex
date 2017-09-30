@@ -1,13 +1,13 @@
 \documentclass[a4paper,12pt]{article}
 \usepackage{researchpack}
 
-\title{Interactive Explanations for Coactive Learning}
-\author{--}
-
 \usepackage{xcolor}
 \newcommand{\stefano}[1]{{\bf \textcolor{violet}{{[Stefano: #1]}}}}
 \newcommand{\lime}{\textsc{lime}}
-\newcommand{\cola}{\textsc{mojito}}
+\newcommand{\mojito}{\textsc{mojito}}
+
+\title{\mojito: Coactive Learning with \lime}
+\author{--}
 
 \begin{document}
 \maketitle
@@ -36,7 +36,9 @@
         As in \lime~\cite{ribeiro2016should}, we target linear
         classifiers only:
         %
-        $$ g(x) = \argmax_{y\in\calY} \inner{w}{\vpsi(x,y)} $$
+        $$ g(x) = \argmax_{y\in\calY} \; \inner{w}{\vpsi(x,y)} $$
+        %
+        Here $\vpsi$ are \textbf{interpretable} features.
 
     \item an \textbf{active learner} providing three methods:
 
@@ -55,24 +57,24 @@
 
 \end{itemize}
 
-Goal: learn an estimate $f$ of $f^*$ by interating with the user via coactive
-learning, providing candidate predictions and their explanation at each
-iteration. The user is free to improve the candidate prediction (and
+\textbf{Goal}: learn an estimate $f$ of $f^*$ by interacting with the user via
+coactive learning, providing candidate predictions and their explanation at
+each iteration. The user is free to improve the candidate prediction (and
 potentially the accompanying explanation).
 
-\paragraph{Algorithm template.} See Algorithm~\ref{alg:cola}.
+\paragraph{Algorithm template.} See Algorithm~\ref{alg:mojito}.
 
 \begin{algorithm*}[t]
-    \caption{\label{alg:cola} The \cola\ algorithm.}
+    \caption{\label{alg:mojito} The \mojito\ algorithm.}
     \begin{algorithmic}[1]
-        \Procedure{\cola}{$\calD$, $\vpsi$, $T$}
+        \Procedure{\mojito}{$\calD$, $\vpsi$, $T$}
             \State $f^1 \gets \text{initial model}$
             \For{ $t = 1, \dots, T$ }
                 \State $x^t \gets \textsc{SelectQuery}(f^t, \calD)$
                 \State $y^t \gets \textsc{Infer}(f^t, x^t)$
                 \State $g^t \gets \textsc{Explain}(f^t, x^t,[y^t])$
-                \State Present $x^t$, $y^t$ and explanation of $g^t$ to the user
-                \State $\bar{y}^t, \bar{g}^t \gets \text{Observe user's feedback}$
+                \State Obtain improved prediction $\bar{y}^t$ from $x^t$, $y^t$, $g^t$
+                \State [Obtain improved explanation $\bar{g}^t$ from $x^t$, $y^t$, $g^t$]
                 \State $f^{t+1} \gets \textsc{Update}(f^t,x^t,y^t,\bar{y}^t,[g^t,\bar{g}^t])$
             \EndFor
             \State $\textbf{return} f^{T+1}$
@@ -93,6 +95,13 @@ the user both an example $x^t$ and a prediction $y^t$; on the contrary, in
 active learning only $x^t$ is presented. In other words, active learning does
 not aim at ``explaining'' the current prediction of the classifier to the
 annotator.
+
+\stefano{Contrary to structured-output prediction, in binary and multi-class
+classification there is no ranking between labels. The only way to ``improve''
+a prediction $y^t$ is to change it to the correct label, i.e., $\bar{y}^t =
+f^*(x^t)$. In this case $\alpha$-informativeness does not make sense anymore.
+However, the user/oracle may provide the actual correct label with a certain
+probability rather than with certainty.}
 
 The candidate prediction $y^t$ is useful because the explanation is based on
 it.
