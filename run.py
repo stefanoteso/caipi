@@ -37,6 +37,7 @@ def main():
     args = parser.parse_args()
 
     np.seterr(all='raise')
+    np.set_printoptions(precision=3)
     rng = np.random.RandomState(args.seed)
 
     print('Creating problem...')
