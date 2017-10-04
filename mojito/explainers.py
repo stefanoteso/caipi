@@ -77,4 +77,8 @@ class LimeExplainer(Explainer):
         # - learn actual weights using least squares
         model = SVC(kernel='linear', random_state=self.rng) \
                     .fit(Z_explainable, Y_hat, sample_weight=w_sample)
+        Y_explainable = model.predict(Z_explainable)
+        discrepancy = np.dot(w_sample, (Y_hat - Y_explainable)**2)
+        print('explanation discrepancy =', discrepancy)
+
         return problem.explain(model.coef_.ravel())
