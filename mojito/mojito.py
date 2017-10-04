@@ -70,9 +70,8 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         x_explainable = problem.X_explainable[i]
         y = learner.predict(problem.X[i].reshape(1, -1))
 
-        g = None
-        if explain:
-            g = explainer.explain(problem, learner, problem.X_explainable[i])
+        g = None if not explain else \
+            explainer.explain(problem, learner, problem.X_explainable[i])
 
         # Ask the user
         y_bar, g_bar = problem.improve(i, y, g)
