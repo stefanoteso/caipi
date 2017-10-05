@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics import precision_recall_fscore_support as prfs
 
 from .utils import TextMod
@@ -91,6 +90,7 @@ class ReligionProblem(Problem):
     """Newsgroup problem over text documents."""
     def __init__(self, rng=None):
         from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 
         CATEGORIES = ['alt.atheism', 'soc.religion.christian']
         dataset = fetch_20newsgroups(subset='all', categories=CATEGORIES,
@@ -100,8 +100,19 @@ class ReligionProblem(Problem):
 
         vectorizer = CountVectorizer(lowercase=False, ngram_range=(1, 2))
         self.vectorizer = vectorizer.fit(dataset.data)
-        self.X = vectorizer.transform(dataset.data)
+        self.X = np.array(vectorizer.transform(dataset.data).todense(),
+                          dtype=np.float32)
 
         vectorizer = TfidfVectorizer(lowercase=False)
         self.explainable_vectorizer = vectorizer.fit(dataset.data)
-        self.X_explainable = vectorizer.transform(dataset.data)
+        self.X_explainable = np.array(vectorizer.transform(dataset.data).todense(),
+                                      dtype=np.float32)
+
+    def evaluate(self, learner, X, Y):
+        Y_hat = learner.predict(X)
+        return np.array(prfs(Y, Y_hat, average='weighted')[:3])
+
+    def improve(self, example, y, g):
+        if g is not None:
+            raise NotImplementedError()
+        return self.Y[example], g
