@@ -42,10 +42,7 @@ class LimeExplainer(Explainer):
         super().__init__(*args, **kwargs)
 
     def _sample_dataset(self, x_explainable):
-        """Samples examples around x.
-
-        NOTE: it may sample less examples z that self.max_samples.
-        """
+        """Samples examples around x."""
         nonzero_entries = np.flatnonzero(x_explainable)
 
         Z_explainable = []
