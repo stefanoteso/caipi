@@ -6,7 +6,8 @@ from .utils import TextMod
 
 
 def mojito(problem, learner, explainer, train_examples, known_examples,
-           max_iters=100, start_explaining_at=20, rng=None):
+           max_iters=100, start_explaining_at=20, improve_explanations=True,
+           rng=None):
     """An implementation of the Mojito algorithm.
 
     Parameters
@@ -25,6 +26,8 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         Maximum number of iterations.
     start_explaining_at : int, default to 20
         Iteration at which the explanation mechanic kicks in.
+    improve_explanations : bool, defaults to True
+        Whether to obtain feedback on the explanations.
     rng : numpy.RandomState, defaults to None
         The RNG.
     """
@@ -67,16 +70,19 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         assert i in train_examples and i not in known_examples
 
         # Compute a prediction and an explanation
-        x_explainable = problem.X_explainable[i]
-        y = learner.predict(problem.X[i].reshape(1, -1))
+        x = problem.X[i]
+        y = learner.predict(x.reshape(1, -1))
 
+        x_explainable = problem.X_explainable[i]
         g = None if not explain else \
-            explainer.explain(problem, learner, problem.X_explainable[i])
+            explainer.explain(problem, learner, x_explainable)
 
         # Ask the user
-        y_bar, g_bar = problem.improve(i, y, g)
+        y_bar = problem.improve(i, y)
+        g_bar = problem.improve_explaination(i, x_explainable, g)
 
         # Update the model
+        # TODO learn from the improved explanation
         known_examples.append(i)
         learner.fit(problem.X[known_examples],
                     problem.Y[known_examples])

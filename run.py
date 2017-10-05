@@ -41,7 +41,8 @@ def main():
     rng = np.random.RandomState(args.seed)
 
     print('Creating problem...')
-    problem = PROBLEMS[args.problem](rng=rng)
+    oracle = mojito.ActiveSVM(rng=rng)
+    problem = PROBLEMS[args.problem](oracle=oracle, rng=rng)
     folds = KFold(n_splits=args.num_folds, random_state=rng) \
                 .split(problem.examples)
 

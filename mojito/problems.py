@@ -30,7 +30,7 @@ class CancerProblem(Problem):
 
     TODO: add support for multi-class classification.
     """
-    def __init__(self, rng=None):
+    def __init__(self, oracle, rng=None):
         from sklearn.datasets import load_breast_cancer
 
         dataset = load_breast_cancer()
@@ -39,6 +39,9 @@ class CancerProblem(Problem):
         self.X = self.e2u(self.X_explainable)
         self.examples = list(range(len(self.Y)))
         self.feature_names = dataset.feature_names
+
+        oracle.fit(self.X, self.Y)
+        self.oracle = oracle
 
     @staticmethod
     def _polynomial(a, b):
@@ -56,17 +59,33 @@ class CancerProblem(Problem):
 
     def explain(self, coef, max_features=10):
         indices = np.argsort(coef)[-max_features:]
-        return coef[indices], self.feature_names[indices]
+        return coef[indices], indices
 
-    def improve(self, example, y, g):
-        if g is not None:
-            text = '\n'.join(['{:32s} = '.format(feature_name) + \
-                              TextMod.BOLD + '{:5.3f}'.format(value) + TextMod.END
-                              for value, feature_name in zip(g[0], g[1])])
-            print('example {example} is though as {y} because'.format(**locals()))
-            print(TextMod.BOLD + text + TextMod.END)
+    def improve(self, y):
+        return self.Y[example]
 
-        return self.Y[example], g
+    @staticmethod
+    def highlight(value):
+        text = '{:5.3f}'.format(value)
+        if np.abs(value) > 1e-6:
+            return TextMod.BOLD + text + TextMod.END
+        return text
+
+#    def present_explanation(self, indices_weights, g):
+#        indices, weights = g
+#        names = self.feature_names[indices]
+#        print('example {example} is though as {y} because'.format(**locals()))
+#        print('\n'.join(['{:32s} = '.format(feature_name) + highlight(value)
+#                          for name, weight in zip(names, weights)]))
+
+    def improve_explanation(self, example, x_explainable, g):
+        if g is None:
+            return None
+        explanation, indices = g
+        true_explanation = explainer.explain(self, self.oracle, x_explainable)
+        return (true_explanation + explanation) / 2, indices
+
+
 
 class ReligionProblem(Problem):
     """Newsgroup problem over text documents."""
