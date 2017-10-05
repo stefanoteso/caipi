@@ -4,55 +4,99 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mojito import load
 
-def pad(array, length):
-    assert array.ndim == 1
-    full = np.zeros(length, dtype=array.dtype)
-    full[:len(array)] = array
-    return full
 
-def prettify(ax):
-#        xtick = 5 if max_iters <= 50 else 10
-#        xticks = np.hstack([[1], np.arange(xtick, max_iters + 1, xtick)])
-#        reg_ax.set_xticks(xticks)
-#
-#        ax.xaxis.label.set_fontsize(18)
-#        ax.yaxis.label.set_fontsize(18)
-#        ax.grid(True)
-#        for line in ax.get_xgridlines() + ax.get_ygridlines():
-#            line.set_linestyle('-.')
-    pass
+class Tango:
+    # From light to dark
+    YELLOW  = ("#fce94f", "#edd400", "#c4a000")
+    ORANGE  = ("#fcaf3e", "#f57900", "#ce5c00")
+    BROWN   = ("#e9b96e", "#c17d11", "#8f5902")
+    GREEN   = ("#8ae234", "#73d216", "#4e9a06")
+    BLUE    = ("#729fcf", "#3465a4", "#204a87")
+    VIOLET  = ("#ad7fa8", "#75507b", "#5c3566")
+    RED     = ("#ef2929", "#cc0000", "#a40000")
+    WHITE   = ("#eeeeec", "#d3d7cf", "#babdb6")
+    BLACK   = ("#888a85", "#555753", "#2e3436")
+
+
+def get_style(args):
+    color = {
+        'random': Tango.BLACK[0],
+        'margin': Tango.RED[0],
+    }[args.strategy]
+
+    marker = {
+        True: 'o',
+        False: '*',
+    }[args.improve_explanations]
+
+    label = args.strategy
+    if args.improve_explanations:
+        label += ' EI'
+
+    return label, color, marker
+
 
 def draw(args):
     plt.style.use('ggplot')
 
-    data = np.array([load(path) for path in args.pickles])
-    # data indices: [file][fold][iteration][measure]
+    trace_args, traces = [], []
+    for path in args.pickles:
+        data = load(path)
+        trace_args.append(data['args'])
+        traces.append(data['traces'])
+        num_examples = data['num_examples']
 
-    num_files = data.shape[0]
-    num_perfs = data.shape[-1]
+    traces = np.array(traces)
+    # traces indices: [file, fold, iteration, measure]
+
+    num_files = traces.shape[0]
+    num_perfs = traces.shape[-1]
     fig, axes = plt.subplots(1, num_perfs)
 
-    # Draw all performance measures
+    FACTOR = 100 / num_examples
+
+    # For each performance measure
     for p in range(num_perfs):
-        perf_data = data[:,:,:,p]
+        traces_p = traces[:,:,:,p]
 
-        # TODO x axis should be the % of labelled examples
-
+        # For each results file
+        x0, ymin, ymax = None, np.inf, -np.inf
         for f in range(num_files):
-            file_perf_data = perf_data[f,:,:]
+            traces_f_p = traces_p[f,:,:]
 
-            xs = np.arange(1, file_perf_data.shape[1] + 1)
-            ys = np.mean(file_perf_data, axis=0)
-            yerrs = np.std(file_perf_data, axis=0) / np.sqrt(file_perf_data.shape[0])
+            label, color, marker = get_style(trace_args[f])
 
-            axes[p].plot(xs, ys, linewidth=2, label='perf {}'.format(p))
+            x0f = round(trace_args[f].perc_known)
+            if x0 is None:
+                x0 = x0f
+            assert x0 == x0f, 'perc_known mismatch'
+
+            xs = x0 + np.arange(0, traces_f_p.shape[1]) * FACTOR
+            ys = np.mean(traces_f_p, axis=0)
+            yerrs = np.std(traces_f_p, axis=0) / np.sqrt(traces_f_p.shape[0])
+
+            axes[p].plot(xs, ys, linewidth=2, label=label,
+                         color=color, marker=marker)
             axes[p].fill_between(xs, ys - yerrs, ys + yerrs, linewidth=0,
-                                 alpha=0.35)
+                                 alpha=0.35, color=color)
 
-            axes[p].set_title(args.title)
-            axes[p].set_xlabel('% labels')
-            axes[p].set_ylabel('performance')
-            prettify(axes[p])
+            # Draw a vertical line where explanations start
+            xlinef = x0 + trace_args[f].start_explaining_at * FACTOR
+            axes[p].axvline(x=xlinef, ymin=0, ymax=1, linewidth=2, color=color)
+
+            ymin = min(ys.min(), ymin)
+            ymax = max(ys.max(), ymax)
+
+        axes[p].set_title(args.title)
+        axes[p].set_xlim([xs[0], xs[-1]])
+        axes[p].set_xlabel('% labels')
+        axes[p].set_ylim([max(0, ymin * 0.9), min(ymax * 1.1, 1)])
+        legend = axes[p].legend(loc='lower right', fancybox=False,
+                                shadow=False)
+        for label in legend.get_texts():
+            label.set_fontsize('x-large')
+        for line in legend.get_lines():
+            line.set_linewidth(2)
 
     fig.set_size_inches(12, 4)
     fig.savefig(args.png_basename + '.png', bbox_inches='tight', pad_inches=0)
