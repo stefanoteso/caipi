@@ -55,7 +55,7 @@ class CancerProblem(Problem):
 
     def evaluate(self, learner, X, Y):
         Y_hat = learner.predict(X)
-        return prfs(Y, Y_hat, average='weighted')[:3]
+        return np.array(prfs(Y, Y_hat, average='weighted')[:3])
 
     def explain(self, coef, max_features=10):
         indices = np.argsort(coef)[-max_features:]
