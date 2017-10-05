@@ -29,7 +29,7 @@ class LimeExplainer(Explainer):
     Parameters
     ----------
 
-    max_samples : int, defaults to 100
+    num_samples : int, defaults to 100
         Number of examples to sample around the prediction
     invsigma : float, defaults to 1
         Spread of the Gaussian example weights
@@ -37,7 +37,7 @@ class LimeExplainer(Explainer):
     All other parameters are passed to mojito.Explainer.
     """
     def __init__(self, *args, **kwargs):
-        self.max_samples = kwargs.pop('max_samples', 100)
+        self.num_samples = kwargs.pop('num_samples', 100)
         self.invsigma = kwargs.pop('invsigma', 10000.0)
         super().__init__(*args, **kwargs)
 
@@ -46,7 +46,7 @@ class LimeExplainer(Explainer):
         nonzero_entries = np.flatnonzero(x_explainable)
 
         Z_explainable = []
-        for i in range(self.max_samples):
+        for i in range(self.num_samples):
             self.rng.shuffle(nonzero_entries)
             num_nonzeros_in_z = self.rng.randint(0, len(nonzero_entries))
             chosen = nonzero_entries[:max(1, num_nonzeros_in_z)]
@@ -76,6 +76,6 @@ class LimeExplainer(Explainer):
                     .fit(Z_explainable, Y_hat, sample_weight=w_sample)
         Y_explainable = model.predict(Z_explainable)
         discrepancy = np.dot(w_sample, (Y_hat - Y_explainable)**2)
-        print('explanation discrepancy =', discrepancy)
 
-        return problem.explain(model.coef_.ravel())
+        explanation = problem.explain(model.coef_.ravel())
+        return explanation, discrepancy

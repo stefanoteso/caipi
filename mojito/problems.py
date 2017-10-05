@@ -15,7 +15,10 @@ class Problem:
     def explain(self, coef, max_features=10):
         raise NotImplementedError('virtual method')
 
-    def improve(self, example, y, g):
+    def improve(self, example, y):
+        raise NotImplementedError('virtual method')
+
+    def improve_explanation(self, explainer, example, x_explainable, g):
         raise NotImplementedError('virtual method')
 
 
@@ -56,33 +59,24 @@ class CancerProblem(Problem):
         Y_hat = learner.predict(X)
         return np.array(prfs(Y, Y_hat, average='weighted')[:3])
 
-    def explain(self, coef, max_features=10):
-        indices = np.argsort(coef)[-max_features:]
-        return coef[indices], indices
-
-    def improve(self, y):
+    def improve(self, example, y):
         return self.Y[example]
 
-    @staticmethod
-    def highlight(value):
-        text = '{:5.3f}'.format(value)
-        if np.abs(value) > 1e-6:
-            return TextMod.BOLD + text + TextMod.END
-        return text
+    def explain(self, coef, max_features=10):
+        indices = np.argsort(coef)[-max_features:]
+        explanation = np.zeros_like(coef)
+        explanation[indices] = coef[indices]
+        return explanation
 
-#    def present_explanation(self, indices_weights, g):
-#        indices, weights = g
-#        names = self.feature_names[indices]
-#        print('example {example} is though as {y} because'.format(**locals()))
-#        print('\n'.join(['{:32s} = '.format(feature_name) + highlight(value)
-#                          for name, weight in zip(names, weights)]))
+    def improve_explanation(self, explainer, x_explainable, explanation):
+        if explanation is None:
+            return None, -1
 
-    def improve_explanation(self, example, x_explainable, g):
-        if g is None:
-            return None
-        explanation, indices = g
-        true_explanation = explainer.explain(self, self.oracle, x_explainable)
-        return (true_explanation + explanation) / 2, indices
+        # Approximate the oracle's explanation
+        true_explanation, discrepancy = \
+            explainer.explain(self, self.oracle, x_explainable)
+
+        return true_explanation - explanation, discrepancy
 
 
 

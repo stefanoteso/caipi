@@ -61,7 +61,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
     for t in range(max_iters):
         if len(known_examples) == len(train_examples):
             break
-        if t >= start_explaining_at:
+        if 0 <= start_explaining_at <= t:
             explain = True
 
         # Select a query from the unknown examples
@@ -74,12 +74,13 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         y = learner.predict(x.reshape(1, -1))
 
         x_explainable = problem.X_explainable[i]
-        g = None if not explain else \
+        g, discrepancy = (None, -1) if not explain else \
             explainer.explain(problem, learner, x_explainable)
 
         # Ask the user
         y_bar = problem.improve(i, y)
-        g_bar = problem.improve_explaination(i, x_explainable, g)
+        g_bar, discrepancy_bar = (None, -1) if not improve_explanations else \
+            problem.improve_explanation(explainer, x_explainable, g)
 
         # Update the model
         # TODO learn from the improved explanation
@@ -93,6 +94,14 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
                                  problem.Y[test_examples])
         print('{t:3d} : example {i}, label {y} -> {y_bar}, perfs {perfs}'
                   .format(**locals()))
+        if g is not None:
+            print('model explanation (discrepancy {discrepancy}) =\n {g}'
+                     .format(**locals()))
+        if g_bar is not None:
+            print('oracle explanation (discrepancy {discrepancy_bar}) =\n {g_bar}'
+                     .format(**locals()))
+            quit()
+
         trace.append(np.array(perfs))
     else:
         print('all examples processed in {} iterations'.format(t))
