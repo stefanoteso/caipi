@@ -52,12 +52,13 @@ class ActiveTandemSVM(ActiveLearner):
             'random': self.select_at_random_,
             'margin': self.select_by_margin_,
         }[strategy]
+        self.C = C
         self.rng = check_random_state(rng)
 
         self.model_ = LinearSVC(penalty='l2', loss='hinge', C=C,
                                 random_state=rng)
 
-    def fit_crsvm_(self, X, Y):
+    def fit_(self, X, Y):
         import cvxpy as cvx
 
         num_examples, num_features = X.shape
@@ -65,15 +66,19 @@ class ActiveTandemSVM(ActiveLearner):
         w = cvx.Variable(num_features)
         b = cvx.Variable()
 
-        loss = cvx.sum_entries(cvx.pos(1 - cvx.mul_elemwise(2 * Y - 1, X*w - b)))
-        objective = 1/2 * cvx.norm(w, 1) + self.C / num_examples * loss
+        Y = (2 * Y - 1).astype(np.float32)
+
+        loss = cvx.sum_entries(cvx.pos(1 - cvx.mul_elemwise(Y, X*w - b)))
+        objective = 1/2 * cvx.norm(w, 2) + self.C / num_examples * loss
 
         problem = cvx.Problem(cvx.Minimize(objective))
-        problem.solve(verbose=True)
+        # ['LS', 'ECOS_BB', 'GUROBI', 'SCS', 'ECOS']
+        problem.solve(solver=cvx.ECOS, verbose=True)
+        print('QP status =', problem.status)
         return np.array(w.value).ravel(), b.value
 
     def fit(self, X, Y):
-        self.w_, self.b_ = self.fit_svm_(X, Y)
+        self.w_, self.b_ = self.fit_(X, Y)
 
     def score(self, X):
         return np.dot(X, self.w_.T) - self.b_
