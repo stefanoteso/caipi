@@ -15,7 +15,7 @@ PROBLEMS = {
 }
 
 
-def get_traces_path(args):
+def get_results_path(args):
     fields = [
         ('strategy', args.strategy),
         ('num-folds', args.num_folds),
@@ -44,7 +44,7 @@ def main():
                         help='Percentage of initial labelled examples')
     parser.add_argument('-T', '--max-iters', type=int, default=100,
                         help='Maximum number of learning iterations')
-    parser.add_argument('-E', '--start-explaining-at', type=int, default=20,
+    parser.add_argument('-E', '--start-explaining-at', type=int, default=-1,
                         help='Iteration at which explanations kick in')
     parser.add_argument('-k', '--num-lime-samples', type=int, default=500,
                         help='Size of the LIME sampled dataset')
@@ -62,12 +62,13 @@ def main():
     oracle = mojito.ActiveSVM(args.strategy, rng=rng)
     problem = PROBLEMS[args.problem](oracle=oracle, rng=rng)
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
-                .split(problem.X, problem.Y)
+                .split(problem.Y, problem.Y)
 
     traces = []
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
 
+        problem.set_fold(train_examples)
         learner = mojito.ActiveSVM(args.strategy, rng=rng)
         explainer = mojito.LimeExplainer(problem,
                                          num_samples=args.num_lime_samples,
@@ -84,7 +85,9 @@ def main():
                                     improve_explanations=args.improve_explanations,
                                     rng=rng))
 
-    mojito.dump(get_traces_path(args), traces)
+    mojito.dump(get_results_path(args),
+                {'args': args, 'num_examples': len(problem.examples),
+                 'traces': traces})
 
 
 if __name__ == '__main__':

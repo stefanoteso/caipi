@@ -69,6 +69,8 @@ class LimeExplainer(Explainer):
         Z_explainable, w_sample = self._sample_dataset(x_explainable)
         Y_hat = learner.predict(problem.e2u(Z_explainable))
 
+        print('Y_lime balance =', Y_hat.sum() / len(Y_hat))
+
         # TODO
         # - select first K weights using LASSO
         # - learn actual weights using least squares

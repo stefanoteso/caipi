@@ -6,7 +6,7 @@ from .utils import TextMod
 
 
 def mojito(problem, learner, explainer, train_examples, known_examples,
-           max_iters=100, start_explaining_at=20, improve_explanations=True,
+           max_iters=100, start_explaining_at=-1, improve_explanations=False,
            rng=None):
     """An implementation of the Mojito algorithm.
 
@@ -24,8 +24,9 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         Indices of the examples whose label is known.
     max_iters : int, defaults to 100
         Maximum number of iterations.
-    start_explaining_at : int, default to 20
-        Iteration at which the explanation mechanic kicks in.
+    start_explaining_at : int, default to -1
+        Iteration at which the explanation mechanic kicks in. Negative means
+        disabled.
     improve_explanations : bool, defaults to True
         Whether to obtain feedback on the explanations.
     rng : numpy.RandomState, defaults to None
@@ -71,7 +72,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
 
         # Compute a prediction and an explanation
         x = problem.X[i]
-        y = learner.predict(x.reshape(1, -1))
+        y = learner.predict(x.reshape(1, -1))[0]
 
         x_explainable = problem.X_explainable[i]
         g, discrepancy = (None, -1) if not explain else \
@@ -82,25 +83,28 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         g_bar, discrepancy_bar = (None, -1) if not improve_explanations else \
             problem.improve_explanation(explainer, x_explainable, g)
 
-        # Update the model
-        # TODO learn from the improved explanation
-        known_examples.append(i)
-        learner.fit(problem.X[known_examples],
-                    problem.Y[known_examples])
-
-        # Record the model performance
-        perfs = problem.evaluate(learner,
-                                 problem.X[test_examples],
-                                 problem.Y[test_examples])
-        print('{t:3d} : example {i}, label {y} -> {y_bar}, perfs {perfs}'
-                  .format(**locals()))
+        # Debug
         if g is not None:
             print('model explanation (discrepancy {discrepancy}) =\n {g}'
                      .format(**locals()))
         if g_bar is not None:
             print('oracle explanation (discrepancy {discrepancy_bar}) =\n {g_bar}'
                      .format(**locals()))
-            quit()
+
+        # Update the model
+        known_examples.append(i)
+        learner.fit(problem.X[known_examples],
+                    problem.Y[known_examples])
+
+        # TODO: learn from the improved explanation
+
+        # Record the model performance
+        y_diff = y_bar - y
+        perfs = problem.evaluate(learner,
+                                 problem.X[test_examples],
+                                 problem.Y[test_examples])
+        print('{t:3d} : example {i}, label change {y_diff}, perfs {perfs}'
+                  .format(**locals()))
 
         trace.append(np.array(perfs))
     else:
