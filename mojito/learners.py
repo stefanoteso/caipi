@@ -43,7 +43,7 @@ class ActiveSVM(ActiveLearner):
         return examples[np.argmin(margin)]
 
 
-class ActiveCRSVM(ActiveLearner):
+class ActiveTandemSVM(ActiveLearner):
     # TODO: make it as robust as the sklearn implementation
     # TODO: integrate explanation feedback
 

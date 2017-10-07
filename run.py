@@ -15,8 +15,15 @@ PROBLEMS = {
 }
 
 
+LEARNERS = {
+    'svm': mojito.ActiveSVM,
+    'tandemsvm': mojito.ActiveTandemSVM,
+}
+
+
 def get_results_path(args):
     fields = [
+        ('learner', args.learner),
         ('strategy', args.strategy),
         ('num-folds', args.num_folds),
         ('perc-known', args.perc_known),
@@ -36,6 +43,8 @@ def main():
     fmt_class = argparse.ArgumentDefaultsHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=fmt_class)
     parser.add_argument('problem', help='name of the problem')
+    parser.add_argument('-L', '--learner', type=str, default='svm',
+                        help='Active learner to use')
     parser.add_argument('-S', '--strategy', type=str, default='random',
                         help='Query selection strategy to use')
     parser.add_argument('-f', '--num-folds', type=int, default=10,
@@ -69,7 +78,7 @@ def main():
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
 
         problem.set_fold(train_examples)
-        learner = mojito.ActiveSVM(args.strategy, rng=rng)
+        learner = LEARNERS[args.learner](args.strategy, rng=rng)
         explainer = mojito.LimeExplainer(problem,
                                          num_samples=args.num_lime_samples,
                                          rng=rng)
