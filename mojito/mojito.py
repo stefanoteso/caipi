@@ -50,13 +50,12 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
                               problem.X[test_examples],
                               problem.Y[test_examples])]
 
-    perfs = trace[-1]
     print(dedent('''\
             T={} #train={} #known={} #test={}
             full set perfs = {}
             starting perfs = {}
         ''').format(max_iters, len(train_examples), len(known_examples),
-                    len(test_examples), full_perfs, perfs))
+                    len(test_examples), full_perfs, trace[-1]))
 
     explain = False
     for t in range(max_iters):
