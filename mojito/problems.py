@@ -82,7 +82,7 @@ class CancerProblem(Problem):
             return None, -1
 
         # Approximate the oracle's explanation
-        true_explanation, discrepancy = \
+        true_explanation, discrepancy, _ = \
             explainer.explain(self, self.oracle, x_explainable)
 
         return true_explanation, discrepancy

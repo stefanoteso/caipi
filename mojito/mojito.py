@@ -74,7 +74,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         y = learner.predict(x.reshape(1, -1))[0]
 
         x_explainable = problem.X_explainable[i]
-        g, discrepancy = (None, -1) if not explain else \
+        g, discrepancy, X_sampled = (None, -1) if not explain else \
             explainer.explain(problem, learner, x_explainable)
 
         # Ask the user
