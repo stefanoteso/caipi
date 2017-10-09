@@ -70,7 +70,7 @@ class CancerProblem(Problem):
 
     def improve_explanation(self, explainer, x_explainable, explanation):
         if explanation is None:
-            return None, -1
+            return None, None, None, -1, None, None
         return explainer.explain(self, self.oracle, x_explainable)
 
 

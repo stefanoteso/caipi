@@ -73,16 +73,16 @@ class LimeExplainer(Explainer):
         X_explainable = problem.e2u(Z_explainable)
         Y_hat = learner.predict(X_explainable)
 
-        balance = Y_hat.sum() / len(Y_hat)
-        print('Y_lime balance =', balance)
-        if balance == 0:
-            return None, None, None, -1, None, None
+        print('Y_lime balance =', Y_hat.sum() / len(Y_hat))
 
         # TODO
         # - select first K weights using LASSO
         # - learn actual weights using least squares
-        model = SVC(kernel='linear', random_state=self.rng) \
-                    .fit(Z_explainable, Y_hat, sample_weight=w_sample)
+        try:
+            model = SVC(kernel='linear', random_state=self.rng) \
+                        .fit(Z_explainable, Y_hat, sample_weight=w_sample)
+        except ValueError:
+            return None, None, None, -1, None, None
         assert model.coef_.shape[0] == 1
         v, c = model.coef_.ravel(), model.intercept_
 

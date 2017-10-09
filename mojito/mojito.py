@@ -99,11 +99,12 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
 
         # Update the model
         known_examples.append(i)
-        R_sampled = explainer.rank_labels(Z_sampled, g, c, g_bar, c_bar)
-        learner.fit(problem.X[known_examples],
-                    problem.Y[known_examples],
-                    X_lime=X_sampled,
-                    R_lime=R_sampled)
+        if explain and improve_explanations and g is not None and g_bar is not None:
+            R_sampled = explainer.rank_labels(Z_sampled, g, c, g_bar, c_bar)
+            learner.fit(problem.X[known_examples], problem.Y[known_examples],
+                        X_lime=X_sampled, R_lime=R_sampled)
+        else:
+            learner.fit(problem.X[known_examples], problem.Y[known_examples])
 
         # TODO: learn from the improved explanation
 
