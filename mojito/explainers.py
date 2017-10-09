@@ -73,7 +73,10 @@ class LimeExplainer(Explainer):
         X_explainable = problem.e2u(Z_explainable)
         Y_hat = learner.predict(X_explainable)
 
-        print('Y_lime balance =', Y_hat.sum() / len(Y_hat))
+        balance = Y_hat.sum() / len(Y_hat)
+        print('Y_lime balance =', balance)
+        if balance == 0:
+            return None, None, None, -1, None, None
 
         # TODO
         # - select first K weights using LASSO
