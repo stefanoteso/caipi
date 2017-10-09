@@ -89,3 +89,9 @@ class LimeExplainer(Explainer):
         explanation[indices] = v[indices]
 
         return explanation, v, c, discrepancy, Z_explainable
+
+    def rank_labels(self, Z, g, c, g_bar, c_bar):
+        if Z is not None and g_bar is not None:
+            return np.sign(np.dot(Z, g_bar) - c_bar) - \
+                   np.sign(np.dot(Z, g) - c)
+        return None
