@@ -7,10 +7,10 @@ class ActiveLearner:
     def select_query(self, problem, examples):
         raise NotImplementedError('virtual method')
 
-    def fit(self, problem, examples):
+    def predict(self, X):
         raise NotImplementedError('virtual method')
 
-    def predict(self, X):
+    def fit(self, X, Y, X_lime=None, R_lime=None):
         raise NotImplementedError('virtual method')
 
 
@@ -25,7 +25,11 @@ class ActiveSVM(ActiveLearner):
         self.model_ = LinearSVC(penalty='l2', loss='hinge', C=C,
                                 random_state=rng)
 
-    def fit(self, X, Y):
+    def fit(self, X, Y, X_lime=None, R_lime=None):
+        if X_lime is not None:
+            indices = np.flatnonzero(R_lime)
+            X = np.vstack([X, X_lime[indices]])
+            Y = np.hstack([Y, (R_lime[indices] + 1) / 2])
         self.model_.fit(X, Y)
 
     def score(self, X):
@@ -58,7 +62,7 @@ class ActiveTandemSVM(ActiveLearner):
         self.model_ = LinearSVC(penalty='l2', loss='hinge', C=C,
                                 random_state=rng)
 
-    def fit_(self, X, Y):
+    def fit(self, X, Y, X_lime=None, R_lime=None):
         import cvxpy as cvx
 
         num_examples, num_features = X.shape
@@ -75,10 +79,8 @@ class ActiveTandemSVM(ActiveLearner):
         # ['LS', 'ECOS_BB', 'GUROBI', 'SCS', 'ECOS']
         problem.solve(solver=cvx.ECOS, verbose=True)
         print('QP status =', problem.status)
-        return np.array(w.value).ravel(), b.value
 
-    def fit(self, X, Y):
-        self.w_, self.b_ = self.fit_(X, Y)
+        self.w_, self.b_ = np.array(w.value).ravel(), b.value
 
     def score(self, X):
         return np.dot(X, self.w_.T) - self.b_

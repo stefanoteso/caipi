@@ -80,18 +80,21 @@ class LimeExplainer(Explainer):
         # - learn actual weights using least squares
         model = SVC(kernel='linear', random_state=self.rng) \
                     .fit(Z_explainable, Y_hat, sample_weight=w_sample)
+        assert model.coef_.shape[0] == 1
+        v, c = model.coef_.ravel(), model.intercept_
+
         Y_explainable = model.predict(Z_explainable)
         discrepancy = np.dot(w_sample, (Y_hat - Y_explainable)**2)
 
-        v, c = model.coef_.ravel(), model.intercept_
         indices = np.argsort(v)[-self.num_features:]
         explanation = np.zeros_like(v)
         explanation[indices] = v[indices]
 
-        return explanation, v, c, discrepancy, Z_explainable
+        return explanation, v, c, discrepancy, X_explainable, Z_explainable
 
     def rank_labels(self, Z, g, c, g_bar, c_bar):
         if Z is not None and g_bar is not None:
-            return np.sign(np.dot(Z, g_bar) - c_bar) - \
-                   np.sign(np.dot(Z, g) - c)
+            delta = (np.sign(np.dot(Z, g_bar) - c_bar) -
+                     np.sign(np.dot(Z, g) - c)) / 2
+            return delta
         return None

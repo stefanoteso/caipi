@@ -74,13 +74,20 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         y = learner.predict(x.reshape(1, -1))[0]
 
         x_explainable = problem.X_explainable[i]
-        g, discrepancy, X_sampled = (None, -1) if not explain else \
-            explainer.explain(problem, learner, x_explainable)
+        if explain:
+            g, v, c, discrepancy, X_sampled, Z_sampled = \
+                explainer.explain(problem, learner, x_explainable)
+        else:
+            g, v, c, discrepancy, X_sampled, Z_sampled = \
+                None, None, None, -1, None, None
 
         # Ask the user
         y_bar = problem.improve(i, y)
-        g_bar, discrepancy_bar = (None, -1) if not improve_explanations else \
-            problem.improve_explanation(explainer, x_explainable, g)
+        if explain and improve_explanations:
+            g_bar, v_bar, c_bar, discrepancy_bar, _, _ = \
+                problem.improve_explanation(explainer, x_explainable, g)
+        else:
+            g_bar, v_bar, c_bar, discrepancy_bar = None, None, None, -1
 
         # Debug
         if g is not None:
@@ -92,8 +99,11 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
 
         # Update the model
         known_examples.append(i)
+        R_sampled = explainer.rank_labels(Z_sampled, g, c, g_bar, c_bar)
         learner.fit(problem.X[known_examples],
-                    problem.Y[known_examples])
+                    problem.Y[known_examples],
+                    X_lime=X_sampled,
+                    R_lime=R_sampled)
 
         # TODO: learn from the improved explanation
 
