@@ -61,7 +61,7 @@ class LimeExplainer(Explainer):
         Z_explainable = np.array(Z_explainable)
 
         diff = x_explainable - Z_explainable
-        diff = diff / np.sum(diff, axis=0)
+        diff = diff / np.linalg.norm(diff)
         dist = np.diag(np.dot(diff, diff.T))
         weights = np.exp(-self.invsigma * dist**2)
 
