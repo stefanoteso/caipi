@@ -89,9 +89,10 @@ class LimeExplainer(Explainer):
         Y_explainable = model.predict(Z_explainable)
         discrepancy = np.dot(w_sample, (Y_hat - Y_explainable)**2)
 
-        indices = np.argsort(v)[-self.num_features:]
+        relevance = np.abs(v)
+        most_relevant = np.argsort(relevance)[-self.num_features:]
         explanation = np.zeros_like(v)
-        explanation[indices] = v[indices]
+        explanation[most_relevant] = v[most_relevant]
 
         return explanation, v, c, discrepancy, X_explainable, Z_explainable
 
