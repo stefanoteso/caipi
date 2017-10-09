@@ -31,6 +31,8 @@ class LimeExplainer(Explainer):
 
     num_samples : int, defaults to 100
         Number of examples to sample around the prediction
+    num_features : int, defaults to 10
+        Number of non-zero features in the explanation.
     invsigma : float, defaults to 1
         Spread of the Gaussian example weights
 
@@ -38,6 +40,7 @@ class LimeExplainer(Explainer):
     """
     def __init__(self, *args, **kwargs):
         self.num_samples = kwargs.pop('num_samples', 100)
+        self.num_features = kwargs.pop('num_features', 10)
         self.invsigma = kwargs.pop('invsigma', 10000.0)
         super().__init__(*args, **kwargs)
 
@@ -80,5 +83,9 @@ class LimeExplainer(Explainer):
         Y_explainable = model.predict(Z_explainable)
         discrepancy = np.dot(w_sample, (Y_hat - Y_explainable)**2)
 
-        explanation = problem.explain(model.coef_.ravel())
-        return explanation, discrepancy, X_explainable
+        v, c = model.coef_.ravel(), model.intercept_
+        indices = np.argsort(v)[-self.num_features:]
+        explanation = np.zeros_like(v)
+        explanation[indices] = v[indices]
+
+        return explanation, v, c, discrepancy, Z_explainable
