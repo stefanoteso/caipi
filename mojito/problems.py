@@ -13,9 +13,6 @@ class Problem:
     def evaluate(self, learner, X, Y):
         raise NotImplementedError('virtual method')
 
-    def explain(self, coef, max_features=10):
-        raise NotImplementedError('virtual method')
-
     def improve(self, example, y):
         raise NotImplementedError('virtual method')
 
@@ -71,21 +68,10 @@ class CancerProblem(Problem):
     def improve(self, example, y):
         return self.Y[example]
 
-    def explain(self, coef, max_features=10):
-        indices = np.argsort(coef)[-max_features:]
-        explanation = np.zeros_like(coef)
-        explanation[indices] = coef[indices]
-        return explanation
-
     def improve_explanation(self, explainer, x_explainable, explanation):
         if explanation is None:
             return None, -1
-
-        # Approximate the oracle's explanation
-        true_explanation, discrepancy, _ = \
-            explainer.explain(self, self.oracle, x_explainable)
-
-        return true_explanation, discrepancy
+        return explainer.explain(self, self.oracle, x_explainable)
 
 
 
