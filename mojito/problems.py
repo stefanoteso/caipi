@@ -59,7 +59,7 @@ class CancerProblem(Problem):
         if X_explainable.ndim == 1:
             return self._polynomial(X_explainable, X_explainable)
         X = np.array([self._polynomial(x, x) for x in X_explainable])
-        return self.scaler(X) if hasattr(self, 'scaler') else X
+        return self.scaler.transform(X) if hasattr(self, 'scaler') else X
 
     def evaluate(self, learner, X, Y):
         Y_hat = learner.predict(X)
