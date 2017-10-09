@@ -20,20 +20,22 @@ class Tango:
 
 def get_style(args):
     color = {
-        'random': Tango.BLACK[0],
-        'margin': Tango.RED[0],
-    }[args.strategy]
+        ('random', False): Tango.BLUE[0],
+        ('margin', False): Tango.RED[0],
+        ('random', True): Tango.BLUE[2],
+        ('margin', True): Tango.RED[2],
+    }[(args.strategy, args.improve_explanations)]
 
-    marker = {
-        True: 'o',
-        False: '*',
+    linestyle = {
+        False: '-',
+        True: '--',
     }[args.improve_explanations]
 
     label = args.strategy
     if args.improve_explanations:
         label += ' EI'
 
-    return label, color, marker
+    return label, color
 
 
 def draw(args):
@@ -64,19 +66,18 @@ def draw(args):
         for f in range(num_files):
             traces_f_p = traces_p[f,:,:]
 
-            label, color, marker = get_style(trace_args[f])
+            label, color = get_style(trace_args[f])
 
             x0f = round(trace_args[f].perc_known)
             if x0 is None:
                 x0 = x0f
-            assert x0 == x0f, 'perc_known mismatch'
+            # assert x0 == x0f, 'perc_known mismatch'
 
             xs = x0 + np.arange(0, traces_f_p.shape[1]) * FACTOR
             ys = np.mean(traces_f_p, axis=0)
             yerrs = np.std(traces_f_p, axis=0) / np.sqrt(traces_f_p.shape[0])
 
-            axes[p].plot(xs, ys, linewidth=2, label=label,
-                         color=color, marker=marker)
+            axes[p].plot(xs, ys, linewidth=2, label=label, color=color)
             axes[p].fill_between(xs, ys - yerrs, ys + yerrs, linewidth=0,
                                  alpha=0.35, color=color)
 
