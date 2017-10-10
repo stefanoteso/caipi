@@ -82,8 +82,9 @@ def draw(args):
                                  alpha=0.35, color=color)
 
             # Draw a vertical line where explanations start
-            xlinef = x0 + trace_args[f].start_explaining_at * FACTOR
-            axes[p].axvline(x=xlinef, ymin=0, ymax=1, linewidth=2, color=color)
+            xlinef = x0 + (trace_args[f].start_explaining_at + 1) * FACTOR
+            axes[p].axvline(x=xlinef, ymin=0, ymax=1, linewidth=2,
+                            linestyle=':', color=Tango.BLACK[1])
 
             ymin = min(ys.min(), ymin)
             ymax = max(ys.max(), ymax)
@@ -91,13 +92,14 @@ def draw(args):
         axes[p].set_title(args.title)
         axes[p].set_xlim([xs[0], xs[-1]])
         axes[p].set_xlabel('% labels')
-        axes[p].set_ylim([max(0, ymin * 0.9), min(ymax * 1.1, 1)])
-        legend = axes[p].legend(loc='lower right', fancybox=False,
-                                shadow=False)
-        for label in legend.get_texts():
-            label.set_fontsize('x-large')
-        for line in legend.get_lines():
-            line.set_linewidth(2)
+        axes[p].set_ylim([max(0, ymin * 0.9), ymax * 1.1])
+
+    legend = axes[0].legend(loc='lower right', fancybox=False,
+                            shadow=False)
+    for label in legend.get_texts():
+        label.set_fontsize('x-large')
+    for line in legend.get_lines():
+        line.set_linewidth(2)
 
     fig.set_size_inches(12, 4)
     fig.savefig(args.png_basename + '.png', bbox_inches='tight', pad_inches=0)
