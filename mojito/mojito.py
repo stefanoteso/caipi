@@ -48,7 +48,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
     learner.fit(problem.X[known_examples], problem.Y[known_examples])
     trace = [problem.evaluate(learner,
                               problem.X[test_examples],
-                              problem.Y[test_examples])]
+                              problem.Y[test_examples]) + (-1, -1)]
 
     print(dedent('''\
             T={} #train={} #known={} #test={}
@@ -116,7 +116,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         print('{t:3d} : example {i}, label change {y_diff}, perfs {perfs}'
                   .format(**locals()))
 
-        trace.append(np.array(perfs))
+        trace.append(perfs + (discrepancy, discrepancy_bar))
     else:
         print('all examples processed in {} iterations'.format(t))
 
