@@ -30,7 +30,7 @@ class CancerProblem(Problem):
 
     TODO: add support for multi-class classification.
     """
-    def __init__(self, oracle, rng=None):
+    def __init__(self, oracle=None, rng=None):
         from sklearn.datasets import load_breast_cancer
 
         self.oracle = oracle
@@ -49,7 +49,8 @@ class CancerProblem(Problem):
         scaler = MinMaxScaler().fit(self.X_explainable_[train_examples])
         self.X_explainable = scaler.transform(self.X_explainable_)
 
-        self.oracle.fit(self.X, self.Y)
+        if self.oracle:
+            self.oracle.fit(self.X, self.Y)
 
     @staticmethod
     def _polynomial(a, b):
@@ -63,15 +64,42 @@ class CancerProblem(Problem):
 
     def evaluate(self, learner, X, Y):
         Y_hat = learner.predict(X)
-        return np.array(prfs(Y, Y_hat, average='weighted')[:3])
+        return prfs(Y, Y_hat, average='weighted')[:3]
 
     def improve(self, example, y):
         return self.Y[example]
 
-    def improve_explanation(self, explainer, x_explainable, explanation):
+    @staticmethod
+    def highlight(value):
+        text = '{:+2.0f}'.format(value)
+        return TextMod.BOLD + \
+               (TextMod.RED if value < 0 else TextMod.BLUE) + \
+               text + \
+               TextMod.END
+
+    def interact(self, x_explainable, y, explanation):
+        label = {
+            0: TextMod.RED + 'negative',
+            1: TextMod.GREEN + 'positive'
+        }[y]
+        print('the computer thinks that this example is {} because'.format(
+                TextMod.BOLD + label + TextMod.END))
+
+        indices = np.flatnonzero(explanation)
+        polarity = explanation[indices]
+        names = self.feature_names[indices]
+        print('\n'.join(['{:32s} = '.format(name) + self.highlight(value)
+                          for name, value in zip(names, polarity)]))
+
+        # TODO: read off the user's explanation
+
+    def improve_explanation(self, explainer, x_explainable, y, explanation):
         if explanation is None:
             return None, None, None, -1, None, None
-        return explainer.explain(self, self.oracle, x_explainable)
+        if self.oracle:
+            return explainer.explain(self, self.oracle, x_explainable)
+        else:
+            return self.interact(x_explainable, y, explanation)
 
 
 

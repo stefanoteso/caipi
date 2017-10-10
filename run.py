@@ -47,6 +47,8 @@ def main():
                         help='Active learner to use')
     parser.add_argument('-S', '--strategy', type=str, default='random',
                         help='Query selection strategy to use')
+    parser.add_argument('-U', '--ask-user', action='store_true',
+                        help='Whether to ask the (unsimulated) user')
     parser.add_argument('-f', '--num-folds', type=int, default=10,
                         help='Number of cross-validation folds')
     parser.add_argument('-p', '--perc-known', type=float, default=10,
@@ -68,7 +70,7 @@ def main():
     rng = np.random.RandomState(args.seed)
 
     print('Creating problem...')
-    oracle = mojito.ActiveSVM(args.strategy, rng=rng)
+    oracle = None if args.ask_user else mojito.ActiveSVM(args.strategy, rng=rng)
     problem = PROBLEMS[args.problem](oracle=oracle, rng=rng)
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
                 .split(problem.Y, problem.Y)

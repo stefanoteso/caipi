@@ -85,7 +85,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         y_bar = problem.improve(i, y)
         if explain and improve_explanations:
             g_bar, v_bar, c_bar, discrepancy_bar, _, _ = \
-                problem.improve_explanation(explainer, x_explainable, g)
+                problem.improve_explanation(explainer, x_explainable, y, g)
         else:
             g_bar, v_bar, c_bar, discrepancy_bar = None, None, None, -1
 
