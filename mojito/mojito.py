@@ -40,15 +40,11 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
 
     # Fit a model on the complete training set
     learner.fit(problem.X[train_examples], problem.Y[train_examples])
-    full_perfs = problem.evaluate(learner,
-                                  problem.X[test_examples],
-                                  problem.Y[test_examples])
+    full_perfs = problem.evaluate(learner, test_examples)
 
     # Fit an initial model on the known examples
     learner.fit(problem.X[known_examples], problem.Y[known_examples])
-    trace = [problem.evaluate(learner,
-                              problem.X[test_examples],
-                              problem.Y[test_examples]) + (-1, -1)]
+    trace = [problem.evaluate(learner, test_examples) + (-1, -1)]
 
     print(dedent('''\
             T={} #train={} #known={} #test={}
@@ -70,24 +66,17 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         assert i in train_examples and i not in known_examples
 
         # Compute a prediction and an explanation
-        x = problem.X[i]
-        y = learner.predict(x.reshape(1, -1))[0]
-
-        x_explainable = problem.X_explainable[i]
+        y = learner.predict(problem.X[i].todense().reshape(1, -1))[0]
+        g, discrepancy = None, -1
         if explain:
-            g, v, c, discrepancy, X_sampled, Z_sampled = \
-                explainer.explain(problem, learner, x_explainable)
-        else:
-            g, v, c, discrepancy, X_sampled, Z_sampled = \
-                None, None, None, -1, None, None
+            g, discrepancy = problem.explain(learner, i)
 
         # Ask the user
         y_bar = problem.improve(i, y)
+        g_bar, discrepancy_bar = None, -1
         if explain and improve_explanations:
-            g_bar, v_bar, c_bar, discrepancy_bar, _, _ = \
-                problem.improve_explanation(explainer, x_explainable, y, g)
-        else:
-            g_bar, v_bar, c_bar, discrepancy_bar = None, None, None, -1
+            g_bar, discrepancy_bar = \
+                problem.improve_explanation(explainer, i, y, g)
 
         # Debug
         if g is not None:
@@ -99,21 +88,15 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
 
         # Update the model
         known_examples.append(i)
-        if explain and improve_explanations and g is not None and g_bar is not None:
-            R_sampled = explainer.rank_labels(Z_sampled, g, c, g_bar, c_bar)
-            learner.fit(problem.X[known_examples], problem.Y[known_examples],
-                        X_lime=X_sampled, R_lime=R_sampled)
-        else:
-            learner.fit(problem.X[known_examples], problem.Y[known_examples])
-
-        # TODO: learn from the improved explanation
+        learner.fit(problem.X[known_examples], problem.Y[known_examples])
+        if explain and improve_explanations:
+            # TODO learn from the explanation improvement
+            pass
 
         # Record the model performance
         y_diff = y_bar - y
-        perfs = problem.evaluate(learner,
-                                 problem.X[test_examples],
-                                 problem.Y[test_examples])
-        print('{t:3d} : example {i}, label change {y_diff}, perfs {perfs}'
+        perfs = problem.evaluate(learner, test_examples)
+        print('iter {t:3d} : example {i}, label change {y_diff}, perfs {perfs}'
                   .format(**locals()))
 
         trace.append(perfs + (discrepancy, discrepancy_bar))

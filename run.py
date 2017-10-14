@@ -11,7 +11,7 @@ from sklearn.model_selection import StratifiedKFold
 
 PROBLEMS = {
     'cancer': mojito.CancerProblem,
-    'religion': mojito.ReligionProblem,
+    'newsgroups': mojito.NewsgroupsProblem,
 }
 
 

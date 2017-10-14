@@ -67,8 +67,10 @@ class LimeExplainer(Explainer):
 
         return Z_explainable, weights
 
-    def explain(self, problem, learner, x_explainable):
+    def explain(self, problem, learner, example):
         """Explains a prediction using LIME."""
+        x_explainable = problem.X_explainable[example]
+
         Z_explainable, w_sample = self._sample_dataset(x_explainable)
         X_explainable = problem.e2u(Z_explainable)
         Y_hat = learner.predict(X_explainable)

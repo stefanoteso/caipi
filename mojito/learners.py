@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.svm import LinearSVC
+from sklearn.svm import SVC, LinearSVC
 from sklearn.utils import check_random_state
 
 
@@ -22,8 +22,8 @@ class ActiveSVM(ActiveLearner):
         }[strategy]
         self.rng = check_random_state(rng)
 
-        self.model_ = LinearSVC(penalty='l2', loss='hinge', C=C,
-                                random_state=rng)
+        self.model_ = SVC(C=C, kernel='linear', probability=True,
+                          random_state=rng)
 
     def fit(self, X, Y, X_lime=None, R_lime=None):
         if X_lime is not None:
