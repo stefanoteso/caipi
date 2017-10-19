@@ -9,7 +9,10 @@ class ActiveLearner:
     def predict(self, X):
         raise NotImplementedError('virtual method')
 
-    def fit(self, X, Y, X_lime=None, R_lime=None):
+    def predict_proba(self, X):
+        raise NotImplementedError('virtual method')
+
+    def fit(self, X, Y):
         raise NotImplementedError('virtual method')
 
 
@@ -78,14 +81,12 @@ class ActiveSVM(ActiveLearner):
         raise NotImplementedError()
 
 
-def ActiveGP(ActiveLearner):
+class ActiveGP(ActiveLearner):
     def __init__(self, strategy, kernel=None, rng=None):
         from sklearn.gaussian_process import GaussianProcessClassifier
 
         self.select_query = {
             'random': self.select_at_random_,
-            'variance': self.select_by_variance_,
-            'improvement': self.select_by_improvement_,
         }[strategy]
         self.rng = check_random_state(rng)
 
@@ -103,9 +104,3 @@ def ActiveGP(ActiveLearner):
 
     def select_at_random_(self, X, Y, examples):
         return self.rng.choice(list(examples))
-
-    def select_by_variance(self, X, Y, examples):
-        raise NotImplementedError()
-
-    def select_by_improvement(self, X, Y, examples):
-        raise NotImplementedError()
