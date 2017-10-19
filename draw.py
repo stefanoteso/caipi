@@ -19,12 +19,12 @@ class Tango:
 
 
 def get_style(args):
-    color = {
-        ('random', False): Tango.BLUE[0],
-        ('margin', False): Tango.RED[0],
-        ('random', True): Tango.BLUE[2],
-        ('margin', True): Tango.RED[2],
-    }[(args.strategy, args.improve_explanations)]
+    color_type = {
+        'random': Tango.BLUE,
+        'least-confident': Tango.RED,
+        'least-margin': Tango.VIOLET,
+    }[args.strategy]
+    color = color_type[0 if args.improve_explanations else -1]
 
     linestyle = {
         False: '-',

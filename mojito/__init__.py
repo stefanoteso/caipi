@@ -13,7 +13,4 @@ from .newsgroups import *
 from . import learners
 from .learners import *
 
-from . import explainers
-from .explainers import *
-
 from .mojito import *

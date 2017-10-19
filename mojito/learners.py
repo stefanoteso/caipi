@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.svm import SVC, LinearSVC
 from sklearn.utils import check_random_state
 
 
@@ -15,83 +14,98 @@ class ActiveLearner:
 
 
 class ActiveSVM(ActiveLearner):
+    """A simple-minded implementation of active SVM.
+
+    It simply fits a base SVM model from scratch every time a new
+    example is added. This is definitely *not* efficient, but it's
+    enough for our purposes.
+
+    A calibrated classifier is used to squeeze probability estimates
+    from the base SVM model using Platt scaling. These are needed
+    by LIME.
+    """
     def __init__(self, strategy, C=1.0, rng=None):
+        from sklearn.svm import LinearSVC
+        from sklearn.calibration import CalibratedClassifierCV
+
         self.select_query = {
             'random': self.select_at_random_,
-            'margin': self.select_by_margin_,
+            'least-confident': self.select_least_confident_,
+            'least-margin': self.select_least_margin_,
+            'most-improvement': self.select_most_improvement_,
         }[strategy]
         self.rng = check_random_state(rng)
 
-        self.model_ = SVC(C=C, kernel='linear', probability=True,
-                          random_state=rng)
+        self.svm_ = LinearSVC(C=C, penalty='l2', loss='hinge',
+                              multi_class='ovr', random_state=rng)
+        self.model_ = CalibratedClassifierCV(self.svm_, method='sigmoid')
 
-    def fit(self, X, Y, X_lime=None, R_lime=None):
-        if X_lime is not None:
-            indices = np.flatnonzero(R_lime)
-            X = np.vstack([X, X_lime[indices]])
-            Y = np.hstack([Y, (R_lime[indices] + 1) / 2])
+    def fit(self, X, Y):
+        # XXX unfortunately, by design, fittin the CCCV does not fit the SVM
+        self.svm_.fit(X, Y)
         self.model_.fit(X, Y)
 
-    def score(self, X):
-        return self.model_.decision_function(X)
+    def predict(self, X):
+        return self.svm_.predict(X)
+
+    def predict_proba(self, X):
+        return self.model_.predict_proba(X)
+
+    def select_at_random_(self, X, Y, examples):
+        return self.rng.choice(list(examples))
+
+    def select_least_confident_(self, X, Y, examples):
+        """Selects the example closest to the separation hyperplane."""
+        examples = list(examples)
+        margins = np.abs(self.svm_.decision_function(X[examples]))
+        if margins.ndim == 2:
+            margins = margins.min(axis=1)
+        return examples[np.argmin(margins)]
+
+    def select_least_margin_(self, X, Y, examples):
+        """Selects the example whose most likely label is closest to the second
+        most-likely label."""
+        examples = list(examples)
+        probs = self.predict_proba(X[examples])
+        prob_diffs = np.zeros(probs.shape[0])
+        for i, prob in enumerate(probs):
+            sorted_indices = np.argsort(prob)
+            prob_diffs[i] = (prob[sorted_indices[-1]] -
+                             prob[sorted_indices[-2]])
+        return examples[np.argmin(prob_diffs)]
+
+    def select_most_improvement_(self, X, Y, examples):
+        raise NotImplementedError()
+
+
+def ActiveGP(ActiveLearner):
+    def __init__(self, strategy, kernel=None, rng=None):
+        from sklearn.gaussian_process import GaussianProcessClassifier
+
+        self.select_query = {
+            'random': self.select_at_random_,
+            'variance': self.select_by_variance_,
+            'improvement': self.select_by_improvement_,
+        }[strategy]
+        self.rng = check_random_state(rng)
+
+        self.model_ = GaussianProcessClassifier(kernel=kernel,
+                                                random_state=rng)
+
+    def fit(self, X, Y):
+        self.model_.fit(X, Y)
 
     def predict(self, X):
         return self.model_.predict(X)
 
-    def select_at_random_(self, X, Y, examples):
-        return self.rng.choice(list(examples))
-
-    def select_by_margin_(self, X, Y, examples):
-        examples = list(examples)
-        margin = np.abs(self.score(X[examples]))
-        return examples[np.argmin(margin)]
-
-
-class ActiveTandemSVM(ActiveLearner):
-    # TODO: make it as robust as the sklearn implementation
-    # TODO: integrate explanation feedback
-
-    def __init__(self, strategy, C=1.0, rng=None):
-        self.select_query = {
-            'random': self.select_at_random_,
-            'margin': self.select_by_margin_,
-        }[strategy]
-        self.C = C
-        self.rng = check_random_state(rng)
-
-        self.model_ = LinearSVC(penalty='l2', loss='hinge', C=C,
-                                random_state=rng)
-
-    def fit(self, X, Y, X_lime=None, R_lime=None):
-        import cvxpy as cvx
-
-        num_examples, num_features = X.shape
-
-        w = cvx.Variable(num_features)
-        b = cvx.Variable()
-
-        Y = (2 * Y - 1).astype(np.float32)
-
-        loss = cvx.sum_entries(cvx.pos(1 - cvx.mul_elemwise(Y, X*w - b)))
-        objective = 1/2 * cvx.norm(w, 2) + self.C / num_examples * loss
-
-        problem = cvx.Problem(cvx.Minimize(objective))
-        # ['LS', 'ECOS_BB', 'GUROBI', 'SCS', 'ECOS']
-        problem.solve(solver=cvx.ECOS, verbose=True)
-        print('QP status =', problem.status)
-
-        self.w_, self.b_ = np.array(w.value).ravel(), b.value
-
-    def score(self, X):
-        return np.dot(X, self.w_.T) - self.b_
-
-    def predict(self, X):
-        return (np.sign(self.score(X)) + 1) / 2
+    def predict_proba(self, X):
+        return self.model_.predict_proba(X)
 
     def select_at_random_(self, X, Y, examples):
         return self.rng.choice(list(examples))
 
-    def select_by_margin_(self, X, Y, examples):
-        examples = list(examples)
-        margin = np.abs(self.score(X[examples]))
-        return examples[np.argmin(margin)]
+    def select_by_variance(self, X, Y, examples):
+        raise NotImplementedError()
+
+    def select_by_improvement(self, X, Y, examples):
+        raise NotImplementedError()

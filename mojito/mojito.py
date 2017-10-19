@@ -5,9 +5,9 @@ from textwrap import dedent
 from .utils import TextMod
 
 
-def mojito(problem, learner, explainer, train_examples, known_examples,
+def mojito(problem, learner, train_examples, known_examples,
            max_iters=100, start_explaining_at=-1, improve_explanations=False,
-           rng=None):
+           num_samples=5000, rng=None):
     """An implementation of the Mojito algorithm.
 
     Parameters
@@ -16,8 +16,6 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         The problem.
     learner : mojito.ActiveLearner
         The learner.
-    explainer : mojito.Explainer
-        The explainer.
     train_examples : list of int
         Indices of the training examples
     known_examples : list of int
@@ -39,12 +37,12 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
     test_examples = list(set(problem.examples) - set(train_examples))
 
     # Fit a model on the complete training set
-    learner.fit(problem.X[train_examples], problem.Y[train_examples])
-    full_perfs = problem.evaluate(learner, test_examples)
+    # learner.fit(problem.X[train_examples], problem.Y[train_examples])
+    full_perfs = (0, 0, 0) # problem.evaluate(learner, test_examples)
 
     # Fit an initial model on the known examples
     learner.fit(problem.X[known_examples], problem.Y[known_examples])
-    trace = [problem.evaluate(learner, test_examples) + (-1, -1)]
+    trace = [problem.evaluate(learner, test_examples) + (-1, -1, -1)]
 
     print(dedent('''\
             T={} #train={} #known={} #test={}
@@ -53,7 +51,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         ''').format(max_iters, len(train_examples), len(known_examples),
                     len(test_examples), full_perfs, trace[-1]))
 
-    explain = False
+    num_acquired, explain = 0, False
     for t in range(max_iters):
         if len(known_examples) == len(train_examples):
             break
@@ -61,22 +59,30 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
             explain = True
 
         # Select a query from the unknown examples
-        i = learner.select_query(problem.X, problem.Y,
-                                 set(train_examples) - set(known_examples))
+        unknown_examples = set(train_examples) - set(known_examples)
+        i = learner.select_query(problem.X, problem.Y, unknown_examples)
         assert i in train_examples and i not in known_examples
 
         # Compute a prediction and an explanation
-        y = learner.predict(problem.X[i].todense().reshape(1, -1))[0]
-        g, discrepancy = None, -1
+        x = problem.X[i]
+        try:
+            x = x.todense()
+        except AttributeError:
+            pass
+        y = learner.predict(x.reshape(1, -1))[0]
         if explain:
-            g, discrepancy = problem.explain(learner, i)
+            g, discrepancy = problem.explain(learner, train_examples, i,
+                                             num_samples=num_samples)
+        else:
+            g, discrepancy = None, -1
 
         # Ask the user
         y_bar = problem.improve(i, y)
         g_bar, discrepancy_bar = None, -1
         if explain and improve_explanations:
             g_bar, discrepancy_bar = \
-                problem.improve_explanation(explainer, i, y, g)
+                problem.improve_explanation(i, y, g)
+        num_acquired += 1 if y != y_bar else 0
 
         # Debug
         if g is not None:
@@ -99,7 +105,7 @@ def mojito(problem, learner, explainer, train_examples, known_examples,
         print('iter {t:3d} : example {i}, label change {y_diff}, perfs {perfs}'
                   .format(**locals()))
 
-        trace.append(perfs + (discrepancy, discrepancy_bar))
+        trace.append(perfs + (num_acquired, discrepancy, discrepancy_bar))
     else:
         print('all examples processed in {} iterations'.format(t))
 

@@ -1,5 +1,6 @@
 import numpy as np
-from sklearn.datasets import load_breast_cancer
+from lime.lime_tabular import LimeTabularExplainer
+from sklearn.datasets import load_breast_cancer, load_iris
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import precision_recall_fscore_support as prfs
 
@@ -13,74 +14,51 @@ class CancerProblem(Problem):
     Features:
     - non explainable: 2nd degree homogeneous polynomial of the attributes
     - explainable: the attributes
-
-    TODO: add support for multi-class classification.
     """
-    def __init__(self, oracle=None, rng=None):
-        self.oracle = oracle
-
+    def __init__(self, rng=None):
         dataset = load_breast_cancer()
-        self.Y = dataset.target[dataset.target < 2]
-        self.X_explainable_ = dataset.data[dataset.target < 2].astype(np.float32)
-        self.X_ = self.e2u(self.X_explainable_).astype(np.float32)
+
+        scaler = MinMaxScaler()
+
+        self.Y = dataset.target
+        self.X = scaler.fit_transform(self.polynomial_(dataset.data))
         self.examples = list(range(len(self.Y)))
+
+        self.class_names = dataset.target_names
         self.feature_names = dataset.feature_names
 
     def set_fold(self, train_examples):
-        self.scaler = MinMaxScaler().fit(self.X_[train_examples])
-        self.X = self.scaler.transform(self.X_)
+        pass
 
-        scaler = MinMaxScaler().fit(self.X_explainable_[train_examples])
-        self.X_explainable = scaler.transform(self.X_explainable_)
+    def polynomial_(self, X_explainable):
+        def poly(a, b):
+            return np.array([ai*bj for ai in a for bj in b])
+        return np.array([poly(x, x) for x in X_explainable])
 
-        if self.oracle:
-            self.oracle.fit(self.X, self.Y)
-
-    @staticmethod
-    def polynomial_(a, b):
-        return np.array([ai*bj for ai in a for bj in b])
-
-    def e2u(self, X_explainable):
-        if X_explainable.ndim == 1:
-            return self.polynomial_(X_explainable, X_explainable)
-        X = np.array([self.polynomial_(x, x) for x in X_explainable])
-        return self.scaler.transform(X) if hasattr(self, 'scaler') else X
-
-    def evaluate(self, learner, X, Y):
-        Y_hat = learner.predict(X)
-        return prfs(Y, Y_hat, average='weighted')[:3]
+    def explain(self, learner, train_examples, example, num_samples=5000):
+        # TODO pass num_samples in
+        explainer = LimeTabularExplainer(self.X[examples],
+                                         mode='classification',
+                                         class_names=self.class_names,
+                                         feature_names=self.feature_names,
+                                         categorical_features=[],
+                                         verbose=True)
+        local_model = Ridge(alpha=1, fit_intercept=True)
+        explanation = explainer.explain_instance(self.X[example],
+                                                 learner.predict_proba,
+                                                 model_regressor=local_model,
+                                                 num_features=10)
+        # TODO extract datapoints, coefficients, intercept, discrepancy
+        return explanation, -1
 
     def improve(self, example, y):
         return self.Y[example]
 
-    @staticmethod
-    def highlight(value):
-        text = '{:+2.0f}'.format(value)
-        return TextMod.BOLD + \
-               (TextMod.RED if value < 0 else TextMod.BLUE) + \
-               text + \
-               TextMod.END
+    def improve_explanation(self, example, y, explanation):
+        print(explanation.as_list())
+        return explanation
 
-    def interact_(self, x_explainable, y, explanation):
-        label = {
-            0: TextMod.RED + 'negative',
-            1: TextMod.GREEN + 'positive'
-        }[y]
-        print('the computer thinks that this example is {} because'.format(
-                TextMod.BOLD + label + TextMod.END))
-
-        indices = np.flatnonzero(explanation)
-        polarity = explanation[indices]
-        names = self.feature_names[indices]
-        print('\n'.join(['{:32s} = '.format(name) + self.highlight(value)
-                          for name, value in zip(names, polarity)]))
-
-        # TODO: read off the user's explanation
-
-    def improve_explanation(self, explainer, x_explainable, y, explanation):
-        if explanation is None:
-            return None, None, None, -1, None, None
-        if self.oracle:
-            return explainer.explain(self, self.oracle, x_explainable)
-        else:
-            return self.interact_(x_explainable, y, explanation)
+    def evaluate(self, learner, examples):
+        return prfs(self.Y[examples],
+                    learner.predict(self.X[examples]),
+                    average='weighted')[:3]

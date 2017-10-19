@@ -1,39 +1,53 @@
 import numpy as np
+import nltk
+from os.path import join
 from lime.lime_text import LimeTextExplainer
-from sklearn.pipeline import make_pipeline
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import Ridge
+from sklearn.pipeline import make_pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
+
 from .problems import Problem
-from .utils import TextMod
-
-
-# TODO active learning plots + discrepancy for newsgroups
-# TODO explanation examples at beginning and end of procedure
-# TODO define learning from explanation improvements
+from .utils import TextMod, load, dump
 
 
 class NewsgroupsProblem(Problem):
-    """Multi-class document classification.
+    """Document classification.
 
-    Part of it is ripped straight from https://marcotcr.github.io/lime
+    Partially ripped from https://marcotcr.github.io/lime
     """
-    CATEGORIES = ['alt.atheism', 'soc.religion.christian']
+    def __init__(self, labels=None, rng=None):
 
-    def __init__(self, oracle=None, rng=None):
-        import nltk
+        path = join('cache', '20newsgroups.pickle')
+        try:
+            print('loading 20newsgroups...')
+            dataset, self.processed_data = load(path)
+        except:
+            print('failed, preprocessing 20newsgroups...')
+            # NOTE let's keep the quotes, they are pretty informative --
+            # although maybe they leak test data in the training set?
+            dataset = fetch_20newsgroups(subset='all',
+                                         remove=('headers', 'footers'),
+                                         random_state=rng)
+            self.processed_data = self.preprocess(dataset.data)
 
-        # NOTE let's keep the quotes, they are pretty informative
-        dataset = fetch_20newsgroups(subset='all',
-                                     categories=self.CATEGORIES,
-                                     remove=('headers', 'footers'),
-                                     random_state=rng)
-
-        self.examples = list(range(len(dataset.target)))
-        self.data = dataset.data
-        self.Y = dataset.target
+            print('caching preprocessed dataset...')
+            dump(path, (dataset, self.processed_data))
 
         # TODO distinguish between learner's and explainer's features
+        vectorizer = TfidfVectorizer(lowercase=False)
+        self.vectorizer = vectorizer.fit(self.processed_data)
+
+        self.X = vectorizer.transform(self.processed_data)
+        self.Y = dataset.target
+        self.examples = list(range(len(dataset.target)))
+        self.data = dataset.data
+        self.labels = labels or dataset.target_names
+
+    @staticmethod
+    def preprocess(data):
+        """Reduces documents to lists of adjectives, nouns, and verbs."""
 
         VALID_TAGS = set([
             'FW',   # Foreign word
@@ -53,33 +67,24 @@ class NewsgroupsProblem(Problem):
             'VBZ',  # Verb, 3rd person singular present
         ])
 
-        self.processed_data = []
-        for text in self.data:
+        processed_data = []
+        for i, text in enumerate(data):
+            print('preprocessing document {} of {}'.format(i, len(data)))
             processed_text = ' '.join(token for token, tag
                                       in nltk.pos_tag(nltk.word_tokenize(text))
                                       if tag in VALID_TAGS)
-            self.processed_data.append(processed_text)
+            processed_data.append(processed_text)
+        return processed_data
 
-        vectorizer = TfidfVectorizer(lowercase=False)
-        self.vectorizer = vectorizer.fit(self.processed_data)
-        self.X = vectorizer.transform(self.processed_data)
-
-        self.explainer = LimeTextExplainer(class_names=self.CATEGORIES,
-                                           verbose=True)
-
-    def set_fold(self, train_examples):
-        pass
-
-    def evaluate(self, learner, examples):
-        return prfs(self.Y[examples],
-                    learner.predict(self.X[examples]),
-                    average='weighted')[:3]
-
-    def explain(self, learner, example):
+    def explain(self, learner, train_examples, example, num_samples=5000):
+        # TODO pass num_samples in
+        explainer = LimeTextExplainer(class_names=self.labels, verbose=True)
+        local_model = Ridge(alpha=1, fit_intercept=True)
         pipeline = make_pipeline(self.vectorizer, learner.model_)
-        explanation = self.explainer.explain_instance(self.processed_data[example],
-                                                      pipeline.predict_proba,
-                                                      num_features=10)
+        explanation = explainer.explain_instance(self.processed_data[example],
+                                                 pipeline.predict_proba,
+                                                 model_regressor=local_model,
+                                                 num_features=10)
         # TODO extract datapoints, coefficients, intercept, discrepancy
         return explanation, -1
 
@@ -101,14 +106,14 @@ class NewsgroupsProblem(Problem):
                 text = text[:start] + colored_word + text[start+len(word):]
         return text
 
-    def improve_explanation(self, explainer, example, y, explanation):
+    def improve_explanation(self, example, y, explanation):
         class_color = TextMod.BOLD + TextMod.GREEN if y else TextMod.RED
-        class_name = class_color + self.CATEGORIES[y] + TextMod.END
+        class_name = class_color + self.labels[y] + TextMod.END
 
         print('The model thinks that this document:')
-        print('-8<-' * 20)
+        print('=' * 80 + '\n')
         print(self.highlight_words(self.data[example], explanation))
-        print('-8<-' * 20)
+        print('\n' + '=' * 80)
         print('is {}, because of these words:'.format(class_name))
         for word, coeff in explanation.as_list():
             color = TextMod.RED if coeff < 0 else TextMod.GREEN
@@ -119,3 +124,8 @@ class NewsgroupsProblem(Problem):
         # TODO acquire improved explanation
 
         return explanation, -1
+
+    def evaluate(self, learner, examples):
+        return prfs(self.Y[examples],
+                    learner.predict(self.X[examples]),
+                    average='weighted')[:3]

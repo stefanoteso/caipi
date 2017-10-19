@@ -12,12 +12,18 @@ from sklearn.model_selection import StratifiedKFold
 PROBLEMS = {
     'cancer': mojito.CancerProblem,
     'newsgroups': mojito.NewsgroupsProblem,
+    'sport': lambda *args, **kwargs: \
+        mojito.NewsgroupsProblem(*args,
+            labels=('rec.sport.baseball', 'rec.sport.hockey'), **kargs),
+    'religion': lambda *args, **kwargs: \
+        mojito.NewsgroupsProblem(*args,
+            labels=('alt.atheism', 'soc.religion.christian'), **kargs),
 }
 
 
 LEARNERS = {
     'svm': mojito.ActiveSVM,
-    'tandemsvm': mojito.ActiveTandemSVM,
+    'gp': mojito.ActiveGP,
 }
 
 
@@ -29,7 +35,7 @@ def get_results_path(args):
         ('perc-known', args.perc_known),
         ('max-iters', args.max_iters),
         ('start-explaining-at', args.start_explaining_at),
-        ('num-lime-samples', args.num_lime_samples),
+        ('num-samples', args.num_samples),
         ('improve-explanations', args.improve_explanations),
         ('seed', args.seed),
     ]
@@ -57,7 +63,7 @@ def main():
                         help='Maximum number of learning iterations')
     parser.add_argument('-E', '--start-explaining-at', type=int, default=-1,
                         help='Iteration at which explanations kick in')
-    parser.add_argument('-k', '--num-lime-samples', type=int, default=500,
+    parser.add_argument('-k', '--num-samples', type=int, default=500,
                         help='Size of the LIME sampled dataset')
     parser.add_argument('-e', '--improve-explanations', action='store_true',
                         help='Whether the explanations should be improved')
@@ -70,8 +76,7 @@ def main():
     rng = np.random.RandomState(args.seed)
 
     print('Creating problem...')
-    oracle = None if args.ask_user else mojito.ActiveSVM(args.strategy, rng=rng)
-    problem = PROBLEMS[args.problem](oracle=oracle, rng=rng)
+    problem = PROBLEMS[args.problem](rng=rng)
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
                 .split(problem.Y, problem.Y)
 
@@ -79,21 +84,18 @@ def main():
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
 
-        problem.set_fold(train_examples)
         learner = LEARNERS[args.learner](args.strategy, rng=rng)
-        explainer = mojito.LimeExplainer(problem,
-                                         num_samples=args.num_lime_samples,
-                                         rng=rng)
 
         num_known = max(round(len(train_examples) * (args.perc_known / 100)), 2)
         pi = rng.permutation(len(train_examples))
         known_examples = train_examples[pi[:num_known]]
 
-        traces.append(mojito.mojito(problem, learner, explainer,
+        traces.append(mojito.mojito(problem, learner,
                                     train_examples, known_examples,
                                     max_iters=args.max_iters,
                                     start_explaining_at=args.start_explaining_at,
                                     improve_explanations=args.improve_explanations,
+                                    num_samples=args.num_samples,
                                     rng=rng))
 
     mojito.dump(get_results_path(args),

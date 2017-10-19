@@ -13,9 +13,9 @@ class TextMod:
    END = '\033[0m'
 
 def load(path, **kwargs):
-    with open(path, "rb") as fp:
+    with open(path, 'rb') as fp:
         return pickle.load(fp, **kwargs)
 
 def dump(path, what, **kwargs):
-    with open(path, "wb") as fp:
+    with open(path, 'wb') as fp:
         pickle.dump(what, fp, **kwargs)
