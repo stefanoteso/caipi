@@ -10,6 +10,9 @@ from .cancer import *
 from . import newsgroups
 from .newsgroups import *
 
+from . import character
+from .character import *
+
 from . import learners
 from .learners import *
 
