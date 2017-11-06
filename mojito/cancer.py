@@ -1,11 +1,30 @@
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.datasets import load_breast_cancer, load_iris
+from sklearn.linear_model import Ridge
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import precision_recall_fscore_support as prfs
+from sklearn.pipeline import make_pipeline
 
 from .problems import Problem
 from .utils import TextMod
+
+
+def _poly(a, b):
+    return np.array([ai*bj for ai in a for bj in b])
+
+def _polynomial(X):
+    return np.array([_poly(x, x) for x in X])
+
+
+class PolynomialTransformer:
+    def fit(self, X, Y):
+        pass
+
+    def transform(self, X):
+        return _polynomial(X)
+
+    def predict_proba(self, X):
+        raise NotImplementedError()
 
 
 class CancerProblem(Problem):
@@ -21,35 +40,34 @@ class CancerProblem(Problem):
         scaler = MinMaxScaler()
 
         self.Y = dataset.target
-        self.X = scaler.fit_transform(self.polynomial_(dataset.data))
+        self.X_lime = scaler.fit_transform(dataset.data)
+        self.X = scaler.fit_transform(_polynomial(dataset.data))
         self.examples = list(range(len(self.Y)))
 
         self.class_names = dataset.target_names
         self.feature_names = dataset.feature_names
 
-    def set_fold(self, train_examples):
-        pass
+        self.transformer = PolynomialTransformer()
 
-    def polynomial_(self, X_explainable):
-        def poly(a, b):
-            return np.array([ai*bj for ai in a for bj in b])
-        return np.array([poly(x, x) for x in X_explainable])
-
-    def explain(self, learner, train_examples, example, num_samples=5000):
-        # TODO pass num_samples in
-        explainer = LimeTabularExplainer(self.X[examples],
+    def explain(self, learner, known_examples, example, num_samples=5000):
+        explainer = LimeTabularExplainer(self.X_lime[known_examples],
                                          mode='classification',
                                          class_names=self.class_names,
                                          feature_names=self.feature_names,
                                          categorical_features=[],
+                                         discretize_continuous=True,
                                          verbose=True)
+
         local_model = Ridge(alpha=1, fit_intercept=True)
-        explanation = explainer.explain_instance(self.X[example],
-                                                 learner.predict_proba,
+        pipeline = make_pipeline(self.transformer, learner.model_)
+        explanation = explainer.explain_instance(self.X_lime[example],
+                                                 pipeline.predict_proba,
                                                  model_regressor=local_model,
                                                  num_features=10)
+
         # TODO extract datapoints, coefficients, intercept, discrepancy
-        return explanation, -1
+        explanation.discrepancy = -1
+        return explanation
 
     def improve(self, example, y):
         return self.Y[example]
@@ -57,8 +75,3 @@ class CancerProblem(Problem):
     def improve_explanation(self, example, y, explanation):
         print(explanation.as_list())
         return explanation
-
-    def evaluate(self, learner, examples):
-        return prfs(self.Y[examples],
-                    learner.predict(self.X[examples]),
-                    average='weighted')[:3]
