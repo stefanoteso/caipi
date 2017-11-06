@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.utils import check_random_state
+from .utils import densify
 
 
 class ActiveLearner:
@@ -94,13 +95,13 @@ class ActiveGP(ActiveLearner):
                                                 random_state=rng)
 
     def fit(self, X, Y):
-        self.model_.fit(X, Y)
+        self.model_.fit(densify(X), Y)
 
     def predict(self, X):
-        return self.model_.predict(X)
+        return self.model_.predict(densify(X))
 
     def predict_proba(self, X):
-        return self.model_.predict_proba(X)
+        return self.model_.predict_proba(densify(X))
 
     def select_at_random_(self, X, Y, examples):
         return self.rng.choice(list(examples))
