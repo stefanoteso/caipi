@@ -14,10 +14,11 @@ PROBLEMS = {
     'newsgroups': mojito.NewsgroupsProblem,
     'sport': lambda *args, **kwargs: \
         mojito.NewsgroupsProblem(*args,
-            labels=('rec.sport.baseball', 'rec.sport.hockey'), **kargs),
+            labels=('rec.sport.baseball', 'rec.sport.hockey'), **kwargs),
     'religion': lambda *args, **kwargs: \
         mojito.NewsgroupsProblem(*args,
-            labels=('alt.atheism', 'soc.religion.christian'), **kargs),
+            labels=('alt.atheism', 'soc.religion.christian'), **kwargs),
+    'character': mojito.CharacterProblem,
 }
 
 
