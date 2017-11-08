@@ -37,6 +37,7 @@ def get_results_path(args):
         ('max-iters', args.max_iters),
         ('start-explaining-at', args.start_explaining_at),
         ('num-samples', args.num_samples),
+        ('num-features', args.num_features),
         ('improve-explanations', args.improve_explanations),
         ('seed', args.seed),
     ]
@@ -46,16 +47,22 @@ def get_results_path(args):
     return join('results', filename)
 
 
+def fit_oracle(problem, rng):
+    """Fits an 'oracle' learner to the dataset using interpretable features."""
+    from sklearn.linear_model import LogisticRegression
+
+    model = LogisticRegression(penalty='l1', C=1)
+    return model.fit(problem.X, problem.Y)
+
+
 def main():
     fmt_class = argparse.ArgumentDefaultsHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=fmt_class)
     parser.add_argument('problem', help='name of the problem')
-    parser.add_argument('-L', '--learner', type=str, default='svm',
+    parser.add_argument('learner', type=str, default='svm',
                         help='Active learner to use')
-    parser.add_argument('-S', '--strategy', type=str, default='random',
+    parser.add_argument('strategy', type=str, default='random',
                         help='Query selection strategy to use')
-    parser.add_argument('-U', '--ask-user', action='store_true',
-                        help='Whether to ask the (unsimulated) user')
     parser.add_argument('-f', '--num-folds', type=int, default=10,
                         help='Number of cross-validation folds')
     parser.add_argument('-p', '--perc-known', type=float, default=10,
@@ -64,8 +71,10 @@ def main():
                         help='Maximum number of learning iterations')
     parser.add_argument('-E', '--start-explaining-at', type=int, default=-1,
                         help='Iteration at which explanations kick in')
-    parser.add_argument('-k', '--num-samples', type=int, default=500,
+    parser.add_argument('-k', '--num-samples', type=int, default=5000,
                         help='Size of the LIME sampled dataset')
+    parser.add_argument('-n', '--num-features', type=int, default=10,
+                        help='Number of LIME features to present the user')
     parser.add_argument('-e', '--improve-explanations', action='store_true',
                         help='Whether the explanations should be improved')
     parser.add_argument('-s', '--seed', type=int, default=0,
@@ -81,6 +90,9 @@ def main():
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
                 .split(problem.Y, problem.Y)
 
+    # Fit an interpretable model on the full dataset
+    oracle = fit_oracle(problem, rng)
+
     traces = []
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
@@ -92,11 +104,12 @@ def main():
         known_examples = train_examples[pi[:num_known]]
 
         traces.append(mojito.mojito(problem, learner,
-                                    train_examples, known_examples,
+                                    train_examples, known_examples, oracle,
                                     max_iters=args.max_iters,
                                     start_explaining_at=args.start_explaining_at,
                                     improve_explanations=args.improve_explanations,
                                     num_samples=args.num_samples,
+                                    num_features=args.num_features,
                                     rng=rng))
 
     mojito.dump(get_results_path(args),

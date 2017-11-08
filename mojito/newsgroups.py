@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import nltk
 from os.path import join
 from lime.lime_text import LimeTextExplainer
@@ -6,7 +7,6 @@ from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
-from sklearn.metrics import precision_recall_fscore_support as prfs
 
 from .problems import Problem
 from .utils import TextMod, load, dump
@@ -15,9 +15,11 @@ from .utils import TextMod, load, dump
 class NewsgroupsProblem(Problem):
     """Document classification.
 
-    Partially ripped from https://marcotcr.github.io/lime
+    Partially ripped from https://github.com/marcotcr/lime
     """
     def __init__(self, labels=None, rng=None):
+
+        # TODO use standard 20newsgroups processing, ask Antonio
 
         path = join('cache', '20newsgroups.pickle')
         try:
@@ -35,15 +37,18 @@ class NewsgroupsProblem(Problem):
             print('caching preprocessed dataset...')
             dump(path, (dataset, self.processed_data))
 
-        # TODO distinguish between learner's and explainer's features
         vectorizer = TfidfVectorizer(lowercase=False)
         self.vectorizer = vectorizer.fit(self.processed_data)
 
-        self.X = vectorizer.transform(self.processed_data)
-        self.Y = dataset.target
-        self.examples = list(range(len(dataset.target)))
-        self.data = dataset.data
         self.labels = labels or dataset.target_names
+        label_indices = [dataset.target_names.index(label) for label in self.labels]
+        examples = np.where(np.isin(dataset.target, label_indices))[0].ravel()
+
+        self.X = self.X_lime = \
+            vectorizer.transform(self.processed_data[examples])
+        self.Y = dataset.target[examples]
+        self.examples = list(range(len(examples)))
+        self.data = dataset.data
 
     @staticmethod
     def preprocess(data):
@@ -76,17 +81,17 @@ class NewsgroupsProblem(Problem):
             processed_data.append(processed_text)
         return processed_data
 
-    def explain(self, learner, train_examples, example, num_samples=5000):
-        # TODO pass num_samples in
+    def explain(self, learner, example, num_samples=5000, num_features=10):
         explainer = LimeTextExplainer(class_names=self.labels, verbose=True)
         local_model = Ridge(alpha=1, fit_intercept=True)
         pipeline = make_pipeline(self.vectorizer, learner.model_)
         explanation = explainer.explain_instance(self.processed_data[example],
                                                  pipeline.predict_proba,
                                                  model_regressor=local_model,
-                                                 num_features=10)
-        # TODO extract datapoints, coefficients, intercept, discrepancy
-        return explanation, -1
+                                                 num_features=num_features,
+                                                 num_samples=num_samples)
+        explanation.discrepancy = -1
+        return explanation
 
     def improve(self, example, y):
         return self.Y[example]
@@ -123,9 +128,4 @@ class NewsgroupsProblem(Problem):
 
         # TODO acquire improved explanation
 
-        return explanation, -1
-
-    def evaluate(self, learner, examples):
-        return prfs(self.Y[examples],
-                    learner.predict(self.X[examples]),
-                    average='weighted')[:3]
+        return explanation
