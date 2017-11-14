@@ -16,4 +16,7 @@ from .character import *
 from . import learners
 from .learners import *
 
+from . import evaluator
+from .evaluator import *
+
 from .mojito import *

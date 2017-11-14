@@ -50,6 +50,9 @@ class NewsgroupsProblem(Problem):
         self.examples = list(range(len(examples)))
         self.data = dataset.data
 
+    def wrap_preproc(self, model):
+        return model
+
     @staticmethod
     def preprocess(data):
         """Reduces documents to lists of adjectives, nouns, and verbs."""
@@ -81,7 +84,8 @@ class NewsgroupsProblem(Problem):
             processed_data.append(processed_text)
         return processed_data
 
-    def explain(self, learner, example, num_samples=5000, num_features=10):
+    def explain(self, learner, known_examples, example, y,
+                num_samples=5000, num_features=10):
         explainer = LimeTextExplainer(class_names=self.labels, verbose=True)
         local_model = Ridge(alpha=1, fit_intercept=True)
         pipeline = make_pipeline(self.vectorizer, learner.model_)

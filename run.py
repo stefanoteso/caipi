@@ -18,7 +18,9 @@ PROBLEMS = {
     'religion': lambda *args, **kwargs: \
         mojito.NewsgroupsProblem(*args,
             labels=('alt.atheism', 'soc.religion.christian'), **kwargs),
-    'character': mojito.CharacterProblem,
+    'mnist-binary': lambda *args, **kwargs: \
+        mojito.CharacterProblem(*args, labels=(5, 6), **kwargs),
+    'mnist': mojito.CharacterProblem,
 }
 
 
@@ -47,12 +49,18 @@ def get_results_path(args):
     return join('results', filename)
 
 
-def fit_oracle(problem, rng):
-    """Fits an 'oracle' learner to the dataset using interpretable features."""
-    from sklearn.linear_model import LogisticRegression
-
-    model = LogisticRegression(penalty='l1', C=1)
-    return model.fit(problem.X, problem.Y)
+def sample_examples(problem, train_examples, perc_known, rng):
+    """Samples a subset of examples, ensures that each class is represented."""
+    classes = sorted(set(problem.Y))
+    num_known = max(round(len(train_examples) * (perc_known / 100)),
+                    len(classes))
+    num_known_per_class = max(num_known // len(classes), 3)
+    selected = []
+    for y in classes:
+        y_examples = np.array([i for i in train_examples if problem.Y[i] == y])
+        pi = rng.permutation(len(y_examples))
+        selected.extend(y_examples[pi[:num_known_per_class]])
+    return np.array(selected)
 
 
 def main():
@@ -63,22 +71,28 @@ def main():
                         help='Active learner to use')
     parser.add_argument('strategy', type=str, default='random',
                         help='Query selection strategy to use')
-    parser.add_argument('-f', '--num-folds', type=int, default=10,
-                        help='Number of cross-validation folds')
-    parser.add_argument('-p', '--perc-known', type=float, default=10,
-                        help='Percentage of initial labelled examples')
-    parser.add_argument('-T', '--max-iters', type=int, default=100,
-                        help='Maximum number of learning iterations')
-    parser.add_argument('-E', '--start-explaining-at', type=int, default=-1,
-                        help='Iteration at which explanations kick in')
-    parser.add_argument('-k', '--num-samples', type=int, default=5000,
-                        help='Size of the LIME sampled dataset')
-    parser.add_argument('-n', '--num-features', type=int, default=10,
-                        help='Number of LIME features to present the user')
-    parser.add_argument('-e', '--improve-explanations', action='store_true',
-                        help='Whether the explanations should be improved')
     parser.add_argument('-s', '--seed', type=int, default=0,
                         help='RNG seed')
+
+    group = parser.add_argument_group('Explanations')
+    group.add_argument('-E', '--start-explaining-at', type=int, default=-1,
+                       help='Iteration at which explanations kick in')
+    group.add_argument('-I', '--improve-explanations', action='store_true',
+                       help='Whether the explanations should be improved')
+    group.add_argument('-S', '--num-samples', type=int, default=5000,
+                       help='Size of the LIME sampled dataset')
+    group.add_argument('-F', '--num-features', type=int, default=10,
+                       help='Number of LIME features to present the user')
+
+    group = parser.add_argument_group('Evaluation')
+    group.add_argument('-k', '--num-folds', type=int, default=10,
+                       help='Number of cross-validation folds')
+    group.add_argument('-p', '--perc-known', type=float, default=10,
+                       help='Percentage of initial labelled examples')
+    group.add_argument('-T', '--max-iters', type=int, default=100,
+                       help='Maximum number of learning iterations')
+    group.add_argument('-O', '--oracle-kind', type=str, default='l1logreg',
+                       help='Kind of explanation oracle to use')
     args = parser.parse_args()
 
     np.seterr(all='raise')
@@ -90,31 +104,37 @@ def main():
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
                 .split(problem.Y, problem.Y)
 
-    # Fit an interpretable model on the full dataset
-    oracle = fit_oracle(problem, rng)
+    print('Fitting the {} oracle...'.format(args.oracle_kind))
+    evaluator = mojito.Evaluator(problem,
+                                 oracle_kind=args.oracle_kind,
+                                 num_samples=args.num_samples,
+                                 num_features=args.num_features)
+    oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples)
+    print('oracle perfs = {}'.format(oracle_perfs))
 
     traces = []
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
 
-        learner = LEARNERS[args.learner](args.strategy, rng=rng)
+        learner = LEARNERS[args.learner](problem, args.strategy, rng=rng)
+        known_examples = sample_examples(problem, train_examples,
+                                         args.perc_known, rng)
 
-        num_known = max(round(len(train_examples) * (args.perc_known / 100)), 2)
-        pi = rng.permutation(len(train_examples))
-        known_examples = train_examples[pi[:num_known]]
+        trace = mojito.mojito(problem, evaluator, learner,
+                              train_examples, known_examples,
+                              max_iters=args.max_iters,
+                              start_explaining_at=args.start_explaining_at,
+                              improve_explanations=args.improve_explanations,
+                              num_samples=args.num_samples,
+                              num_features=args.num_features,
+                              rng=rng)
+        traces.append(trace)
 
-        traces.append(mojito.mojito(problem, learner,
-                                    train_examples, known_examples, oracle,
-                                    max_iters=args.max_iters,
-                                    start_explaining_at=args.start_explaining_at,
-                                    improve_explanations=args.improve_explanations,
-                                    num_samples=args.num_samples,
-                                    num_features=args.num_features,
-                                    rng=rng))
-
-    mojito.dump(get_results_path(args),
-                {'args': args, 'num_examples': len(problem.examples),
-                 'traces': traces})
+    mojito.dump(get_results_path(args), {
+                    'args': args,
+                    'num_examples': len(problem.examples),
+                    'traces': traces
+                })
 
 
 if __name__ == '__main__':

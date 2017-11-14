@@ -4,6 +4,11 @@ from .utils import densify
 
 
 class ActiveLearner:
+    def __init__(self, problem, strategy, rng=None):
+        self.problem = problem
+        self.strategy = strategy
+        self.rng = check_random_state(rng)
+
     def select_query(self, problem, examples):
         raise NotImplementedError('virtual method')
 
@@ -28,26 +33,34 @@ class ActiveSVM(ActiveLearner):
     from the base SVM model using Platt scaling. These are needed
     by LIME.
     """
-    def __init__(self, strategy, C=1.0, rng=None):
+    def __init__(self, *args, C=1.0, **kwargs):
+        super().__init__(*args, **kwargs)
+
         from sklearn.svm import LinearSVC
         from sklearn.calibration import CalibratedClassifierCV
+
+        # SVM learner used for classification
+        self.svm_ = LinearSVC(C=C,
+                              penalty='l2',
+                              loss='hinge',
+                              multi_class='ovr',
+                              random_state=self.rng)
+        # Wrapper used for probability estimation
+        self.model_ = CalibratedClassifierCV(self.svm_,
+                                             method='sigmoid')
 
         self.select_query = {
             'random': self.select_at_random_,
             'least-confident': self.select_least_confident_,
             'least-margin': self.select_least_margin_,
-            'most-improvement': self.select_most_improvement_,
-        }[strategy]
-        self.rng = check_random_state(rng)
+        }[self.strategy]
 
-        self.svm_ = LinearSVC(C=C, penalty='l2', loss='hinge',
-                              multi_class='ovr', random_state=rng)
-        self.model_ = CalibratedClassifierCV(self.svm_, method='sigmoid')
 
-    def fit(self, X, Y):
-        # XXX unfortunately, by design, fittin the CCCV does not fit the SVM
-        self.svm_.fit(X, Y)
-        self.model_.fit(X, Y)
+    def fit(self, X, y):
+        # XXX unfortunately fitting the calibrated classifier does not fit the
+        # SVM, so we have to fit them both.
+        self.svm_ = self.svm_.fit(X, y)
+        self.model_ = self.model_.fit(X, y)
 
     def predict(self, X):
         return self.svm_.predict(X)
@@ -55,22 +68,25 @@ class ActiveSVM(ActiveLearner):
     def predict_proba(self, X):
         return self.model_.predict_proba(X)
 
-    def select_at_random_(self, X, Y, examples):
+    def select_at_random_(self, problem, examples):
         return self.rng.choice(list(examples))
 
-    def select_least_confident_(self, X, Y, examples):
+    def select_least_confident_(self, problem, examples):
         """Selects the example closest to the separation hyperplane."""
         examples = list(examples)
-        margins = np.abs(self.svm_.decision_function(X[examples]))
+        # margins is of shape (n_examples,) or (n_examples, n_classes)
+        pipeline = problem.wrap_preproc(self.svm_)
+        margins = np.abs(pipeline.decision_function(problem.X[examples]))
         if margins.ndim == 2:
             margins = margins.min(axis=1)
         return examples[np.argmin(margins)]
 
-    def select_least_margin_(self, X, Y, examples):
+    def select_least_margin_(self, problem, examples):
         """Selects the example whose most likely label is closest to the second
         most-likely label."""
         examples = list(examples)
-        probs = self.predict_proba(X[examples])
+        pipeline = problem.wrap_preproc(self)
+        probs = pipeline.predict_proba(problem.X[examples])
         prob_diffs = np.zeros(probs.shape[0])
         for i, prob in enumerate(probs):
             sorted_indices = np.argsort(prob)
@@ -78,24 +94,22 @@ class ActiveSVM(ActiveLearner):
                              prob[sorted_indices[-2]])
         return examples[np.argmin(prob_diffs)]
 
-    def select_most_improvement_(self, X, Y, examples):
-        raise NotImplementedError()
-
 
 class ActiveGP(ActiveLearner):
-    def __init__(self, strategy, kernel=None, rng=None):
+    def __init__(self, *args, kernel=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
         from sklearn.gaussian_process import GaussianProcessClassifier
+        self.model_ = GaussianProcessClassifier(kernel=kernel,
+                                                n_jobs=-1,
+                                                random_state=self.rng)
 
         self.select_query = {
             'random': self.select_at_random_,
-        }[strategy]
-        self.rng = check_random_state(rng)
+        }[self.strategy]
 
-        self.model_ = GaussianProcessClassifier(kernel=kernel,
-                                                random_state=rng)
-
-    def fit(self, X, Y):
-        self.model_.fit(densify(X), Y)
+    def fit(self, X, y):
+        self.model_ = self.model_.fit(X, y)
 
     def predict(self, X):
         return self.model_.predict(densify(X))
@@ -103,5 +117,5 @@ class ActiveGP(ActiveLearner):
     def predict_proba(self, X):
         return self.model_.predict_proba(densify(X))
 
-    def select_at_random_(self, X, Y, examples):
+    def select_at_random_(self, problem, examples):
         return self.rng.choice(list(examples))
