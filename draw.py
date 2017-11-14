@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 from mojito import load
 
 
+PERF_TO_TITLE = ['pr', 'rc', 'F1', 'expl. rc', '# fixed predictions']
+
+
 class Tango:
     # From light to dark
     YELLOW  = ("#fce94f", "#edd400", "#c4a000")
@@ -90,13 +93,13 @@ def draw(args):
             ymin = min(ys.min(), ymin)
             ymax = max(ys.max(), ymax)
 
-        axes[p].set_title(args.title)
+        axes[p].set_title(PERF_TO_TITLE[p])
         axes[p].set_xlim([xs[0], xs[-1]])
         axes[p].set_xlabel('% labels')
         axes[p].set_ylim([max(0, ymin * 0.9), ymax * 1.1])
 
-    legend = axes[0].legend(loc='lower right', fancybox=False,
-                            shadow=False)
+    legend = axes[2].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25),
+                            ncol=3, shadow=False)
     for label in legend.get_texts():
         label.set_fontsize('x-large')
     for line in legend.get_lines():
@@ -113,8 +116,6 @@ if __name__ == '__main__':
                         help='basename of the loss/time PNG plots')
     parser.add_argument('pickles', type=str, nargs='+',
                         help='comma-separated list of pickled results')
-    parser.add_argument('-T', '--title', type=str, default='Title',
-                        help='plot title')
     args = parser.parse_args()
 
     draw(args)
