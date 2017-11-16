@@ -83,7 +83,6 @@ class CharacterProblem(Problem):
                                                      min_weight=0.01,
                                                      hide_rest=False)
             masks.append(mask)
-            print(i, 0 in mask, 1 in mask, 2 in mask)
         explanation.masks = masks
         explanation.y = y
 
@@ -122,7 +121,8 @@ class CharacterProblem(Problem):
 
     def get_explanation_perf(self, true_explanation, pred_explanation):
         def clamp(mask):
-            mask[mask >= 2] = 0
+            mask[mask == 1] = 0
+            mask[mask == 2] = 1
             return mask
         index = self.labels.index(pred_explanation.y)
         true_mask = clamp(true_explanation.masks[index].ravel())
