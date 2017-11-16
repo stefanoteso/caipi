@@ -13,16 +13,6 @@ from .utils import PipeStep
 
 
 _TERM = Terminal()
-_CLASS_COLORS = [
-    _TERM.red,
-    _TERM.green,
-    _TERM.blue,
-    _TERM.magenta,
-    _TERM.yellow,
-    _TERM.cyan,
-    _TERM.black,
-    _TERM.white,
-]
 
 
 class CharacterProblem(Problem):
