@@ -85,17 +85,16 @@ class CharacterProblem(Problem):
                                        qs_kernel_size=1)
 
         # Explain every label
-        images, masks = [], []
+        masks = []
         for i in range(len(self.labels)):
-            image, mask = explanation.get_image_and_mask(self.labels.index(y),
-                                                         positive_only=True,
-                                                         num_features=num_features,
-                                                         min_weight=0.01,
-                                                         hide_rest=False)
-            images.append(image)
+            _, mask = explanation.get_image_and_mask(i,
+                                                     positive_only=False,
+                                                     num_features=num_features,
+                                                     min_weight=0.01,
+                                                     hide_rest=False)
             masks.append(mask)
-        explanation.images, explanation.masks = images, masks
-        explanation.y = y
+            print(i, 0 in mask, 1 in mask, 2 in mask)
+        explanation.masks = masks
 
         return explanation
 
@@ -108,11 +107,12 @@ class CharacterProblem(Problem):
         for i, row in enumerate(rgb2gray(image)):
             for j, value in enumerate(row):
                 gray = 232 + int(round((1 - value) * 23))
-                char = ' '
+                color, char = _TERM.blue, ' '
                 if mask is not None and mask[i,j]:
                     char = '□'
+                    color = [None, _TERM.green, _TERM.red][mask[i,j]]
                 asciiart += (_TERM.on_color(gray) +
-                             _TERM.red +
+                             color +
                              _TERM.bold +
                              char +
                              _TERM.normal)
@@ -121,18 +121,19 @@ class CharacterProblem(Problem):
 
     def improve_explanation(self, example, y, explanation, num_features=10):
         """ASCII-art is the future."""
-        print('The model thinks that this picture:\n')
-        print(self.asciiart(rgb2gray(self.X[example])))
-        print(('is a ' +
-               "'" + _TERM.bold + _TERM.red + str(y) + _TERM.normal + "'" +
-               ' because of these pixels:\n'))
-        index = self.labels.index(explanation.y)
-        image = explanation.images[index]
-        mask = explanation.masks[index]
+        print('The model thinks that this picture is a ' +
+               "'" + _TERM.bold + _TERM.blue + str(y) + _TERM.normal + "'" +
+               ' because of the '
+               + _TERM.bold + _TERM.red + 'red' + _TERM.normal + ' pixels:\n')
+        image = self.X[example]
+        mask = explanation.masks[self.labels.index(y)]
         print(self.asciiart(rgb2gray(image), mask=mask))
 
     def get_explanation_perf(self, true_explanation, pred_explanation):
+        def clamp(mask):
+            mask[mask >= 2] = 0
+            return mask
         index = self.labels.index(pred_explanation.y)
-        true_mask = true_explanation.masks[index].ravel()
-        pred_mask = pred_explanation.masks[index].ravel()
+        true_mask = clamp(true_explanation.masks[index].ravel())
+        pred_mask = clamp(pred_explanation.masks[index].ravel())
         return recall_score(true_mask, pred_mask)
