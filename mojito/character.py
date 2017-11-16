@@ -30,18 +30,34 @@ class CharacterProblem(Problem):
 
     Partially ripped from https://github.com/marcotcr/lime
     """
-    def __init__(self, labels=None, rng=None):
+    def __init__(self, *args, labels=None, noise=True, rng=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
         dataset = fetch_mldata('MNIST original')
 
         self.labels = labels or tuple(range(10))
 
-        Y = dataset.target.astype(np.uint8)
-        indices = np.where(np.isin(Y, self.labels))
-        images = dataset.data[indices].reshape((-1, 28, 28))
+        y = dataset.target.astype(np.uint8)
+        indices = np.where(np.isin(y, self.labels))
 
-        self.Y = Y[indices]
+        y = y[indices]
+        images = dataset.data[indices].reshape((-1, 28, 28))
+        if noise:
+            images = self.add_noise(images, y)
+
+        self.Y = y
         self.X = np.stack([gray2rgb(image) for image in images], 0)
         self.examples = list(range(len(self.Y)))
+
+    def add_noise(self, images, y):
+        """Adds a diagonal feature correlated to the label."""
+        noisy_images = []
+        for image, label in zip(images, y):
+            noise = np.zeros_like(image)
+            height = range(2*label, 2*label + 2)
+            noise[np.ix_(height, range(28))] = 255
+            noisy_images.append(np.hstack((image, noise)))
+        return np.array(noisy_images, dtype=np.uint8)
 
     def wrap_preproc(self, model):
         """Wraps a model into the preprocessing pipeline, if any."""
@@ -105,18 +121,17 @@ class CharacterProblem(Problem):
 
     def improve_explanation(self, example, y, explanation, num_features=10):
         """ASCII-art is the future."""
-        print('The model thinks that this instance:\n')
+        print('The model thinks that this picture:\n')
         print(self.asciiart(rgb2gray(self.X[example])))
-        print(('pictures a ' +
+        print(('is a ' +
                "'" + _TERM.bold + _TERM.red + str(y) + _TERM.normal + "'" +
-               ' because of these patches:\n'))
+               ' because of these pixels:\n'))
         index = self.labels.index(explanation.y)
         image = explanation.images[index]
         mask = explanation.masks[index]
         print(self.asciiart(rgb2gray(image), mask=mask))
 
-    def get_explanation_perf(self, true_explanation, pred_explanation,
-                             min_coeff=1e-4):
+    def get_explanation_perf(self, true_explanation, pred_explanation):
         index = self.labels.index(pred_explanation.y)
         true_mask = true_explanation.masks[index].ravel()
         pred_mask = pred_explanation.masks[index].ravel()

@@ -24,7 +24,9 @@ class CancerProblem(Problem):
 
     Partially ripped from https://github.com/marcotcr/lime
     """
-    def __init__(self, rng=None):
+    def __init__(self, *args, rng=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
         dataset = load_breast_cancer()
 
         self.Y = dataset.target
@@ -121,13 +123,12 @@ class CancerProblem(Problem):
             return 1
         return 0
 
-    def get_explanation_perf(self, true_explanation, pred_explanation,
-                             min_coeff=1e-4):
+    def get_explanation_perf(self, true_explanation, pred_explanation):
         """Compute the explanation recall."""
         num_retrieved, num_relevant = 0, 0
         for true_feat, true_coeff in true_explanation.as_list():
             true_name, true_range = self.to_range(true_feat)
-            num_relevant += int(np.abs(true_coeff) > min_coeff)
+            num_relevant += int(np.abs(true_coeff) > self.min_coeff)
             for pred_feat, pred_coeff in pred_explanation.as_list():
                 pred_name, pred_range = self.to_range(pred_feat)
                 if true_name == pred_name:

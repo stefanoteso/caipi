@@ -17,7 +17,8 @@ class NewsgroupsProblem(Problem):
 
     Partially ripped from https://github.com/marcotcr/lime
     """
-    def __init__(self, labels=None, rng=None):
+    def __init__(self, *args, labels=None, rng=None, **kwargs):
+        super().__init__(*args, **kwargs)
 
         # TODO use standard 20newsgroups processing, ask Antonio
 
