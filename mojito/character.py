@@ -85,6 +85,7 @@ class CharacterProblem(Problem):
             masks.append(mask)
             print(i, 0 in mask, 1 in mask, 2 in mask)
         explanation.masks = masks
+        explanation.y = y
 
         return explanation
 
