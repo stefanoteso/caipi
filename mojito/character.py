@@ -100,7 +100,7 @@ class CharacterProblem(Problem):
                 color, char = _TERM.blue, ' '
                 if mask is not None and mask[i,j]:
                     char = '□'
-                    color = [None, _TERM.green, _TERM.red][mask[i,j]]
+                    color = [None, _TERM.red, _TERM.green][mask[i,j]]
                 asciiart += (_TERM.on_color(gray) +
                              color +
                              _TERM.bold +
