@@ -1,11 +1,8 @@
 import numpy as np
-from sklearn.datasets import fetch_mldata
 from sklearn.pipeline import Pipeline
 from skimage.color import gray2rgb, rgb2gray
-from sklearn.linear_model import Ridge
 from sklearn.metrics import recall_score
 from lime.lime_image import LimeImageExplainer
-import matplotlib.pyplot as plt
 from blessings import Terminal
 
 from .problems import Problem
@@ -15,32 +12,23 @@ from .utils import PipeStep
 _TERM = Terminal()
 
 
-class CharacterProblem(Problem):
-    """Character classification.
+class _ImageProblem(Problem):
+    def __init__(self, *args, data, target, class_names, labels=None,
+                 noise=False, **kwargs):
 
-    Partially ripped from https://github.com/marcotcr/lime
-    """
-    def __init__(self, *args, labels=None, noise=False, rng=None, **kwargs):
-        super().__init__(*args, **kwargs)
+        self.labels = labels or list(range(class_names))
+        indices = np.where(np.isin(target, self.labels))
 
-        dataset = fetch_mldata('MNIST original')
-
-        self.labels = labels or tuple(range(10))
-
-        y = dataset.target.astype(np.uint8)
-        indices = np.where(np.isin(y, self.labels))
-
-        y = y[indices]
-        images = dataset.data[indices].reshape((-1, 28, 28))
+        images, y = data[indices], target[indices]
         if noise:
-            images = self.add_noise(images, y)
+            images = self.add_correlated_noise(images, y)
 
+        self.examples = list(range(len(indices)))
         self.Y = y
         self.X = np.stack([gray2rgb(image) for image in images], 0)
-        self.examples = list(range(len(self.Y)))
 
-    def add_noise(self, images, y):
-        """Adds a diagonal feature correlated to the label."""
+    def add_correlated_noise(self, images, y):
+        """Adds a bunch of features correlated to the label."""
         noisy_images = []
         for image, label in zip(images, y):
             noise = np.zeros_like(image)
@@ -128,3 +116,28 @@ class CharacterProblem(Problem):
         true_mask = clamp(true_explanation.masks[index].ravel())
         pred_mask = clamp(pred_explanation.masks[index].ravel())
         return recall_score(true_mask, pred_mask)
+
+
+
+class MNISTProblem(_ImageProblem):
+    def __init__(self, *args, **kwargs):
+        from sklearn.datasets import fetch_mldata
+
+        dataset = fetch_mldata('MNIST original')
+        super().__init__(*args,
+                         data=dataset.data.reshape((-1, 28, 28)),
+                         target=dataset.target.astype(np.uint8),
+                         class_names=list(map(str, range(10))),
+                         **kwargs)
+
+
+class FER13Problem(_ImageProblem):
+    def __init__(self, *args, **kwargs):
+        from .utils import load
+
+        dataset = load('data/fer2013.pickle')
+        super().__init__(*args,
+                         data=(255 - dataset['data']),
+                         target=dataset['target'],
+                         class_names=dataset['class_names'],
+                         **kwargs)

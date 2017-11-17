@@ -19,8 +19,11 @@ PROBLEMS = {
         mojito.NewsgroupsProblem(*args,
             labels=('alt.atheism', 'soc.religion.christian'), **kwargs),
     'mnist-binary': lambda *args, **kwargs: \
-        mojito.CharacterProblem(*args, labels=(5, 6), **kwargs),
-    'mnist': mojito.CharacterProblem,
+        mojito.MNISTProblem(*args, labels=(5, 6), **kwargs),
+    'mnist-multiclass': mojito.MNISTProblem,
+    'fer13-binary': lambda *args, **kwargs: \
+        mojito.FER13Problem(*args, labels=(2, 5), **kwargs),
+    'fer13-multiclass': mojito.FER13Problem,
 }
 
 
