@@ -16,6 +16,7 @@ class _ImageProblem(Problem):
     def __init__(self, *args, data, target, class_names, labels=None,
                  noise=False, **kwargs):
 
+        self.class_names = class_names
         self.labels = labels or list(range(class_names))
         indices = np.where(np.isin(target, self.labels))
 
@@ -99,10 +100,10 @@ class _ImageProblem(Problem):
 
     def improve_explanation(self, example, y, explanation, num_features=10):
         """ASCII-art is the future."""
-        print('The model thinks that this picture is a ' +
-               "'" + _TERM.bold + _TERM.blue + str(y) + _TERM.normal + "'" +
+        print('The model thinks that this picture is ' +
+               "'" + _TERM.bold + _TERM.blue + self.class_names[y] + _TERM.normal + "'" +
                ' because of the '
-               + _TERM.bold + _TERM.red + 'red' + _TERM.normal + ' pixels:\n')
+               + _TERM.bold + _TERM.green + 'green' + _TERM.normal + ' pixels:\n')
         image = self.X[example]
         mask = explanation.masks[self.labels.index(y)]
         print(self.asciiart(rgb2gray(image), mask=mask))
