@@ -52,7 +52,7 @@ class _ImageProblem(Problem):
                 ('model', model)
             ])
 
-    def explain(self, learner, train_examples, example, y,
+    def explain(self, learner, known_examples, example, y,
                 num_samples=5000, num_features=10):
         explainer = LimeImageExplainer(verbose=False)
         explanation = \
