@@ -20,7 +20,7 @@ class CharacterProblem(Problem):
 
     Partially ripped from https://github.com/marcotcr/lime
     """
-    def __init__(self, *args, labels=None, noise=True, rng=None, **kwargs):
+    def __init__(self, *args, labels=None, noise=False, rng=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         dataset = fetch_mldata('MNIST original')
