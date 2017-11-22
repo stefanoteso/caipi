@@ -69,7 +69,8 @@ def sample_examples(problem, train_examples, perc_known, rng):
 def main():
     fmt_class = argparse.ArgumentDefaultsHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=fmt_class)
-    parser.add_argument('problem', help='name of the problem')
+    parser.add_argument('problem', choices=sorted(PROBLEMS.keys()),
+                        help='name of the problem')
     parser.add_argument('learner', type=str, default='svm',
                         help='Active learner to use')
     parser.add_argument('strategy', type=str, default='random',
