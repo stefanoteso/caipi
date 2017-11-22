@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
+from sklearn.utils import check_random_state
 
 from .utils import TextMod
 
@@ -24,9 +25,12 @@ class Problem:
     ----------
     min_coeff : float, defaults to 1e-4
         Threshold on the LIME coefficients for computing the explanation perf.
+    rng : RandomStream, defaults to None
+        The RNG.
     """
-    def __init__(self, min_coeff=1e-4):
+    def __init__(self, min_coeff=1e-4, rng=None):
         self.min_coeff = min_coeff
+        self.rng = check_random_state(rng)
 
     def wrap_preproc(self, model):
         raise NotImplementedError('virtual method')
