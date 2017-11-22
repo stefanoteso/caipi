@@ -139,10 +139,14 @@ class NewsgroupsProblem(Problem):
                      _TERM.normal
         document = self.highlight_words(self.full_documents[example], explanation)
 
-        print("The model thinks that this document is '{class_name}'" +
-              "because of the highlighted words:\n"
-              "{document}\n"
-              "The important words are:\n".format(**locals()))
+        print(("The model thinks that this document is '{class_name}' " +
+              "because of the highlighted words:\n" +
+              "\n" +
+              "=" * 80 + "\n" +
+              "{document}\n" +
+              "\n" +
+              "=" * 80 + "\n" +
+              "The important words are:\n").format(**locals()))
 
         for word, coeff in explanation.as_list():
             color = _TERM.red if coeff < 0 else _TERM.green
