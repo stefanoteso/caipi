@@ -12,10 +12,10 @@ from sklearn.model_selection import StratifiedKFold
 PROBLEMS = {
     'cancer': mojito.CancerProblem,
     'newsgroups': mojito.NewsgroupsProblem,
-    'sport': lambda *args, **kwargs: \
+    'newsgroups-sport': lambda *args, **kwargs: \
         mojito.NewsgroupsProblem(*args,
             labels=('rec.sport.baseball', 'rec.sport.hockey'), **kwargs),
-    'religion': lambda *args, **kwargs: \
+    'newsgroups-religion': lambda *args, **kwargs: \
         mojito.NewsgroupsProblem(*args,
             labels=('alt.atheism', 'soc.religion.christian'), **kwargs),
     'mnist-binary': lambda *args, **kwargs: \
