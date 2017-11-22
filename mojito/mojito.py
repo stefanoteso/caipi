@@ -76,7 +76,9 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
 
         # Compute the prediction
         x = densify(problem.X[i])
-        y = learner.predict(x[np.newaxis, ...])[0]
+        if x.shape[0] != 1:
+            x = x[np.newaxis, ...]
+        y = learner.predict(x)[0]
 
         explain = 0 <= start_explaining_at <= t
 
