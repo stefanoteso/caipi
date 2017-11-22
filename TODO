@@ -1,0 +1,8 @@
+- split RNGs to make learning and query selection reproducible
+- fix image features
+- track explanation discrepancy
+- track trustability wrt randomly selected features
+- track initial and final learner explanations
+- display oracle explanations
+- look at classical datasets used in active learning (esp. for comparison with
+  baselines and non-kernel-based models)
