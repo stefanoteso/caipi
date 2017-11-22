@@ -4,10 +4,13 @@ from sklearn.datasets import load_breast_cancer, load_iris
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.pipeline import make_pipeline
+from blessings import Terminal
 
 from .problems import Problem
-from .utils import PipeStep, TextMod
+from .utils import PipeStep
 
+
+_TERM = Terminal()
 
 def _poly(a, b):
     return np.array([ai*bj for ai in a for bj in b])
@@ -69,29 +72,20 @@ class CancerProblem(Problem):
     def improve(self, example, y):
         return self.Y[example]
 
-    def get_class_name(self, y):
-        """Returns the colorized class name for the given label."""
-        # XXX it only supports 7 distinct colors...
-        CLASS_COLOR = [
-            TextMod.RED,
-            TextMod.GREEN,
-            TextMod.BLUE,
-            TextMod.PURPLE,
-            TextMod.CYAN,
-            TextMod.YELLOW,
-            TextMod.DARKCYAN,
-        ]
-        return (TextMod.BOLD + CLASS_COLOR[y % len(CLASS_COLOR)] +
-                self.class_names[y] + TextMod.END)
-
     def improve_explanation(self, example, y, explanation):
+        class_name = (_TERM.bold +
+                      _TERM.color(y) +
+                      self.class_names[y] +
+                      _TERM.normal)
 
-        print('The model thinks that this instance:')
-        print(self.X_lime[example])
-        print('is {}, because of these values:'.format(self.get_class_name(y)))
+        x = self.X_lime[example]
+        print(("The model thinks that this example is '{class_name}':\n" +
+               "{x}\n" +
+               "because of these features:\n").format(**locals()))
+
         for constraint, coeff in explanation.as_list():
-            color = TextMod.RED if coeff < 0 else TextMod.GREEN
-            coeff = TextMod.BOLD + color + '{:+3.1f}'.format(coeff) + TextMod.END
+            color = _TERM.red if coeff < 0 else _TERM.green
+            coeff = _TERM.bold + color + '{:+3.1f}'.format(coeff) + _TERM.normal
             print('  {:40s} : {}'.format(constraint, coeff))
 
         # TODO acquire improved explanation
