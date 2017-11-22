@@ -26,6 +26,7 @@ For the complete list of options, type:
 
 Datasets
 --------
-For the FER'13 emotion recognition dataset, make sure to first download the
-dataset from Kaggle into the `data/` directory and run the
-`fer13_preprocess.py` script.
+For the FER'13 emotion recognition dataset, download the dataset from the
+[Kaggle](https://www.kaggle.com/c/challenges-in-representation-learning-facial-expression-recognition-challenge)
+challenge page and place the uncompressed data into the `data/` directory. Then
+run the `fer13_preprocess.py` script.
