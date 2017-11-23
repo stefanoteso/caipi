@@ -7,7 +7,7 @@ from .utils import densify
 
 def mojito(problem, evaluator, learner, train_examples, known_examples,
            max_iters=100, start_explaining_at=-1, improve_explanations=False,
-           num_samples=5000, num_features=10, rng=None):
+           num_samples=5000, num_features=10):
     """An implementation of the Mojito algorithm.
 
     Parameters
@@ -33,11 +33,7 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         Number of samples used by LIME.
     num_features : int, defaults to 10
         Number of explanatory features used by LIME
-    rng : numpy.RandomState, defaults to None
-        The RNG.
     """
-    rng = check_random_state(rng)
-
     train_examples = list(train_examples)
     known_examples = list(known_examples)
     test_examples = list(set(problem.examples) - set(train_examples))

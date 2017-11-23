@@ -130,8 +130,7 @@ def main():
                               start_explaining_at=args.start_explaining_at,
                               improve_explanations=args.improve_explanations,
                               num_samples=args.num_samples,
-                              num_features=args.num_features,
-                              rng=rng)
+                              num_features=args.num_features)
         traces.append(trace)
 
     mojito.dump(get_results_path(args), {
