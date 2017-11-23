@@ -46,6 +46,7 @@ class Evaluator:
         if explanation is None:
             return -1,
 
+        # TODO the oracle is interpretable directly, we should not use LIME
         assert example is not None and y is not None
         oracle_explanation = \
             self.problem.explain(self.oracle,
