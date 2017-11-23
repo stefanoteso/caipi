@@ -37,9 +37,7 @@ class Evaluator:
         """
         X_examples = self.problem.X[examples]
         Y_hat = learner.predict(X_examples)
-        return prfs(self.problem.Y[examples],
-                    Y_hat,
-                    average='weighted')[:3]
+        return prfs(self.problem.Y[examples], Y_hat, average='weighted')[:3]
 
     def _evaluate_explanation(self, learner, explanation, example, y):
         """Computes the recall over the true features."""
