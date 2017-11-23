@@ -42,7 +42,7 @@ class Evaluator:
     def _evaluate_explanation(self, learner, explanation, example, y):
         """Computes the recall over the true features."""
         if explanation is None:
-            return -1,
+            return -1, -1
 
         # TODO the oracle is interpretable directly, we should not use LIME
         assert example is not None and y is not None
@@ -52,8 +52,9 @@ class Evaluator:
                                  example, y,
                                  num_samples=self.num_samples,
                                  num_features=self.num_features)
-        return self.problem.get_explanation_perf(oracle_explanation,
-                                                 explanation),
+        perf = self.problem.get_explanation_perf(oracle_explanation,
+                                                 explanation)
+        return perf, explanation.score
 
     def evaluate(self, learner, examples, explanation=None, example=None, y=None):
         """Evaluates predictions an explanations."""
