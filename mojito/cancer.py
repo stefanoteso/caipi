@@ -64,9 +64,6 @@ class CancerProblem(Problem):
                                                  model_regressor=local_model,
                                                  num_samples=num_samples,
                                                  num_features=num_features)
-
-        # TODO extract datapoints, coefficients, intercept, discrepancy
-        explanation.discrepancy = -1
         return explanation
 
     def improve(self, example, y):

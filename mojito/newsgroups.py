@@ -109,7 +109,6 @@ class NewsgroupsProblem(Problem):
                                                  model_regressor=local_model,
                                                  num_features=num_features,
                                                  num_samples=num_samples)
-        explanation.discrepancy = -1
         return explanation
 
     def improve(self, example, y):
