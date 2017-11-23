@@ -26,7 +26,7 @@ class NewsgroupsProblem(Problem):
         path = join('data', '20newsgroups.pickle')
         try:
             print('loading 20newsgroups...')
-            dataset, self.documents = load(path)
+            dataset, all_pp_documents = load(path)
         except:
             print('failed, preprocessing 20newsgroups...')
             # NOTE let's keep the quotes, they are pretty informative --
@@ -34,10 +34,10 @@ class NewsgroupsProblem(Problem):
             dataset = fetch_20newsgroups(subset='all',
                                          remove=('headers', 'footers'),
                                          random_state=0)
-            self.documents = self.preprocess(dataset.data)
+            all_pp_documents = self.preprocess(dataset.data)
 
             print('caching preprocessed dataset...')
-            dump(path, (dataset, self.documents))
+            dump(path, (dataset, all_pp_documents))
 
         self.class_names = dataset.target_names
         if labels is None:
@@ -48,9 +48,9 @@ class NewsgroupsProblem(Problem):
 
         self.examples = list(range(len(indices)))
         self.Y = dataset.target[indices]
-        documents = [self.documents[i] for i in indices]
-        self.vectorizer = TfidfVectorizer(lowercase=False).fit(documents)
-        self.X = self.vectorizer.transform(documents)
+        self.documents = [all_pp_documents[i] for i in indices]
+        self.vectorizer = TfidfVectorizer(lowercase=False).fit(self.documents)
+        self.X = self.vectorizer.transform(self.documents)
         self.full_documents = [dataset.data[i] for i in indices]
 
     def wrap_preproc(self, model):
