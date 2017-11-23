@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from mojito import load
 
 
-PERF_TO_TITLE = ['pr', 'rc', 'F1', 'expl. rc', '# fixed predictions']
+PERF_TO_TITLE = ['pr', 'rc', 'F1', 'expl. rc', 'expl. fit', '# fixed predictions']
 
 
 class Tango:
