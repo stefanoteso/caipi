@@ -29,10 +29,9 @@ class NewsgroupsProblem(Problem):
             dataset, all_pp_documents = load(path)
         except:
             print('failed, preprocessing 20newsgroups...')
-            # NOTE let's keep the quotes, they are pretty informative --
-            # although maybe they leak test data in the training set?
+            # NOTE quotes include headers
             dataset = fetch_20newsgroups(subset='all',
-                                         remove=('headers', 'footers'),
+                                         remove=('headers', 'footers', 'quotes'),
                                          random_state=0)
             all_pp_documents = self.preprocess(dataset.data)
 
