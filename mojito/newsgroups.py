@@ -60,6 +60,7 @@ class NewsgroupsProblem(Problem):
     def preprocess(data):
         """Reduces documents to lists of adjectives, nouns, and verbs."""
         import nltk
+        from nltk.stem.porter import PorterStemmer
 
         VALID_TAGS = set([
             'FW',   # Foreign word
@@ -79,10 +80,11 @@ class NewsgroupsProblem(Problem):
             'VBZ',  # Verb, 3rd person singular present
         ])
 
+        stemmer = PorterStemmer()
         processed_data = []
         for i, text in enumerate(data):
             print('preprocessing document {} of {}'.format(i, len(data)))
-            processed_text = ' '.join(token for token, tag
+            processed_text = ' '.join(stemmer.stem(token) for token, tag
                                       in nltk.pos_tag(nltk.word_tokenize(text))
                                       if tag in VALID_TAGS)
             processed_data.append(processed_text)
