@@ -98,7 +98,7 @@ class NewsgroupsProblem(Problem):
         from sklearn.linear_model import Ridge
         from sklearn.pipeline import make_pipeline
 
-        explainer = LimeTextExplainer(class_names=self.labels, verbose=True)
+        explainer = LimeTextExplainer(class_names=self.labels)
 
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         pipeline = make_pipeline(self.vectorizer, learner)
