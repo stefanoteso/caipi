@@ -44,6 +44,7 @@ class NewsgroupsProblem(Problem):
         else:
             self.labels = [self.class_names.index(label) for label in labels]
         indices = list(np.where(np.isin(dataset.target, self.labels))[0])
+        indices = [i for i in indices if len(all_pp_documents[i].split()) >= 2]
 
         self.examples = list(range(len(indices)))
         self.Y = dataset.target[indices]
