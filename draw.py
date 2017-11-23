@@ -53,7 +53,7 @@ def draw(args):
         num_examples = data['num_examples']
 
     traces = np.array(traces)
-    # traces indices: [file, fold, iteration, measure]
+    # traces indices: [file, fold, iteration, metric]
 
     num_files = traces.shape[0]
     num_perfs = traces.shape[-1]
@@ -61,7 +61,7 @@ def draw(args):
 
     FACTOR = 100 / num_examples
 
-    # For each performance measure
+    # For each performance metric
     for p in range(num_perfs):
         traces_p = traces[:,:,:,p]
 
