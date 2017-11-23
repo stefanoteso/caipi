@@ -4,8 +4,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from sklearn.utils import check_random_state
 
-from .utils import TextMod
-
 
 class Problem:
     """A problem.

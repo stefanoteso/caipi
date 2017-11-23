@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.utils import check_random_state
 from textwrap import dedent
 
-from .utils import TextMod, densify
+from .utils import densify
 
 
 def mojito(problem, evaluator, learner, train_examples, known_examples,
