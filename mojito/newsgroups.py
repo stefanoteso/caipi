@@ -23,7 +23,7 @@ class NewsgroupsProblem(Problem):
 
         from os.path import join
 
-        path = join('cache', '20newsgroups.pickle')
+        path = join('data', '20newsgroups.pickle')
         try:
             print('loading 20newsgroups...')
             dataset, self.documents = load(path)
