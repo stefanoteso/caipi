@@ -6,3 +6,4 @@
 - display oracle explanations
 - look at classical datasets used in active learning (esp. for comparison with
   baselines and non-kernel-based models)
+- implement Chernoff image dataset? (100 images, must be labelled manually)
