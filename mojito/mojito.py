@@ -5,6 +5,18 @@ from textwrap import dedent
 from .utils import densify
 
 
+def _densify_one(x):
+    """Converts an example to a dense ndarray of shape (1, n_features)."""
+    x = densify(x)
+    if x.shape[0] != 1:
+        # NOTE if X[i] is already dense, densify(X[i]) is a no-op; in this
+        # case we get an x of shape (n_features,), and we turn it into (1,
+        # n_features); if X[i] is sparse, densify(X[i]) returns an x of
+        # shape (1, n_features), so we don't have to "unravel" it.
+        x = x[np.newaxis, ...]
+    return x
+
+
 def mojito(problem, evaluator, learner, train_examples, known_examples,
            max_iters=100, start_explaining_at=-1, improve_explanations=False,
            num_samples=5000, num_features=10):
@@ -72,14 +84,7 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                 set(train_examples) - set(known_examples))
 
         # Compute the prediction
-        x = densify(problem.X[i])
-        if x.shape[0] != 1:
-            # NOTE if X[i] is already dense, densify(X[i]) is a no-op; in this
-            # case we get an x of shape (n_features,), and we turn it into (1,
-            # n_features); if X[i] is sparse, densify(X[i]) returns an x of
-            # shape (1, n_features), so we don't have to "unravel" it.
-            x = x[np.newaxis, ...]
-        y = learner.predict(x)[0]
+        y = learner.predict(_densify_one(problem.X[i]))[0]
 
         explain = 0 <= start_explaining_at <= t
 
