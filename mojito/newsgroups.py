@@ -100,7 +100,7 @@ class NewsgroupsProblem(Problem):
 
         explainer = LimeTextExplainer(class_names=self.labels, verbose=True)
 
-        local_model = Ridge(alpha=1, fit_intercept=True)
+        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         pipeline = make_pipeline(self.vectorizer, learner)
 
         document = self.documents[example]

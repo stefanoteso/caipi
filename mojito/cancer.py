@@ -54,7 +54,7 @@ class CancerProblem(Problem):
                                          discretize_continuous=True,
                                          verbose=True)
 
-        local_model = Ridge(alpha=1, fit_intercept=True)
+        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         try:
             pipeline = make_pipeline(_POLY, learner.model_)
         except AttributeError:

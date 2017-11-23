@@ -54,10 +54,15 @@ class _ImageProblem(Problem):
 
     def explain(self, learner, known_examples, example, y,
                 num_samples=5000, num_features=10):
+        from sklearn.linear_model import Ridge
+
         explainer = LimeImageExplainer(verbose=False)
+
+        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         explanation = \
             explainer.explain_instance(self.X[example],
                                        classifier_fn=learner.predict_proba,
+                                        model_regressor=local_model,
                                        top_labels=len(self.labels),
                                        num_samples=num_samples,
                                        hide_color=0,
