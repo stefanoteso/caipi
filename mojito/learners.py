@@ -38,16 +38,19 @@ class ActiveSVM(ActiveLearner):
 
         from sklearn.svm import LinearSVC
         from sklearn.calibration import CalibratedClassifierCV
+        from sklearn.model_selection import StratifiedKFold
 
         # SVM learner used for classification
         self.svm_ = LinearSVC(C=C,
                               penalty='l2',
                               loss='hinge',
                               multi_class='ovr',
-                              random_state=self.rng)
+                              random_state=0)
         # Wrapper used for probability estimation
+        kfold = StratifiedKFold(random_state=0)
         self.model_ = CalibratedClassifierCV(self.svm_,
-                                             method='sigmoid')
+                                             method='sigmoid',
+                                             cv=kfold)
 
         self.select_query = {
             'random': self.select_at_random_,
@@ -102,7 +105,7 @@ class ActiveGP(ActiveLearner):
         from sklearn.gaussian_process import GaussianProcessClassifier
         self.model_ = GaussianProcessClassifier(kernel=kernel,
                                                 n_jobs=-1,
-                                                random_state=self.rng)
+                                                random_state=0)
 
         self.select_query = {
             'random': self.select_at_random_,

@@ -18,9 +18,10 @@ class Evaluator:
                  num_samples=5000, num_features=10):
         self.problem = problem
         if oracle_kind == 'l1logreg':
-            oracle = LogisticRegression(penalty='l1', C=1, max_iter=10)
+            oracle = LogisticRegression(penalty='l1', C=1, max_iter=10,
+                                        random_state=0)
         elif oracle_kind == 'tree':
-            oracle = DecisionTreeClassifier()
+            oracle = DecisionTreeClassifier(random_state=0)
         else:
             raise ValueError('unsupported oracle_kind={}'.format(oracle_kind))
 

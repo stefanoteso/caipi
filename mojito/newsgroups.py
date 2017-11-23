@@ -33,7 +33,7 @@ class NewsgroupsProblem(Problem):
             # although maybe they leak test data in the training set?
             dataset = fetch_20newsgroups(subset='all',
                                          remove=('headers', 'footers'),
-                                         random_state=self.rng)
+                                         random_state=0)
             self.documents = self.preprocess(dataset.data)
 
             print('caching preprocessed dataset...')
