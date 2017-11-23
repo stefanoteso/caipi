@@ -1,4 +1,3 @@
-- split RNGs to make learning and query selection reproducible
 - fix image features
 - track explanation discrepancy
 - track trustability wrt randomly selected features
