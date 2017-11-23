@@ -48,16 +48,17 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
 
     # Fit the initial model on the known examples
     learner.fit(problem.X[known_examples], problem.Y[known_examples])
-    trace = [evaluator.evaluate(learner, test_examples) + (0,)]
+    initial_perfs = evaluator.evaluate(learner, test_examples)
 
     print(dedent('''\
             T={} #train={} #known={} #test={}
             full training set perfs = {}
             initial perfs = {}
         ''').format(max_iters, len(train_examples), len(known_examples),
-                    len(test_examples), full_perfs, trace[-1]))
+                    len(test_examples), full_perfs, initial_perfs))
 
     num_errors = 0
+    trace = [initial_perfs + (0,)]
     for t in range(max_iters):
 
         if len(known_examples) >= len(train_examples):
