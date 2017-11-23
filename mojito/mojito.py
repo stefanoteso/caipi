@@ -73,6 +73,10 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         # Compute the prediction
         x = densify(problem.X[i])
         if x.shape[0] != 1:
+            # NOTE if X[i] is already dense, densify(X[i]) is a no-op; in this
+            # case we get an x of shape (n_features,), and we turn it into (1,
+            # n_features); if X[i] is sparse, densify(X[i]) returns an x of
+            # shape (1, n_features), so we don't have to "unravel" it.
             x = x[np.newaxis, ...]
         y = learner.predict(x)[0]
 
