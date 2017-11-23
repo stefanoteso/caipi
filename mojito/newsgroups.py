@@ -15,7 +15,7 @@ class NewsgroupsProblem(Problem):
 
     Partially ripped from https://github.com/marcotcr/lime
     """
-    def __init__(self, *args, labels=None, min_words=20, **kwargs):
+    def __init__(self, *args, labels=None, min_words=10, **kwargs):
         super().__init__(*args, **kwargs)
         self.min_words = min_words
 
@@ -44,7 +44,7 @@ class NewsgroupsProblem(Problem):
         else:
             self.labels = [self.class_names.index(label) for label in labels]
         indices = list(np.where(np.isin(dataset.target, self.labels))[0])
-        indices = [i for i in indices if len(all_pp_documents[i].split()) >= 2]
+        indices = [i for i in indices if len(all_pp_documents[i].split()) >= min_words]
 
         self.examples = list(range(len(indices)))
         self.Y = dataset.target[indices]
@@ -104,8 +104,6 @@ class NewsgroupsProblem(Problem):
         pipeline = make_pipeline(self.vectorizer, learner)
 
         document = self.documents[example]
-        if len(document.split()) < self.min_words:
-            document = 'FOO BAR BAZ'
         explanation = explainer.explain_instance(document,
                                                  pipeline.predict_proba,
                                                  model_regressor=local_model,
