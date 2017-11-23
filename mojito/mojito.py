@@ -109,7 +109,4 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                   .format(**locals()))
         trace.append(perfs + (num_errors,))
 
-    else:
-        print('all examples processed in {} iterations'.format(t))
-
     return np.array(trace)
