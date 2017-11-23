@@ -30,7 +30,7 @@ class ActiveSVM(ActiveLearner):
     enough for our purposes.
 
     A calibrated classifier is used to squeeze probability estimates
-    from the base SVM model using Platt scaling. These are needed
+    out of the base SVM model using Platt scaling. These are needed
     by LIME.
     """
     def __init__(self, *args, C=1.0, **kwargs):
