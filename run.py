@@ -43,6 +43,7 @@ def get_results_path(args):
         ('start-explaining-at', args.start_explaining_at),
         ('num-samples', args.num_samples),
         ('num-features', args.num_features),
+        ('eval-explanations-every', args.eval_explanations_every),
         ('improve-explanations', args.improve_explanations),
         ('seed', args.seed),
     ]
@@ -87,6 +88,9 @@ def main():
                        help='Size of the LIME sampled dataset')
     group.add_argument('-F', '--num-features', type=int, default=10,
                        help='Number of LIME features to present the user')
+    group.add_argument('-e', '--eval-explanations-every', type=int, default=10,
+                       help='Interval for evaluating explanation performance'
+                            'on the test set')
 
     group = parser.add_argument_group('Evaluation')
     group.add_argument('-k', '--num-folds', type=int, default=10,
