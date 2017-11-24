@@ -39,7 +39,7 @@ class Evaluator:
         Y_hat = learner.predict(X_examples)
         return prfs(self.problem.Y[examples], Y_hat, average='weighted')[:3]
 
-    def evaluate_explanation(self, learner, explanation, example, y):
+    def evaluate_explanation(self, example, y, explanation):
         """Computes the recall over the true features."""
         if explanation is None:
             return -1, -1
@@ -59,4 +59,4 @@ class Evaluator:
     def evaluate(self, learner, examples, explanation=None, example=None, y=None):
         """Evaluates predictions an explanations."""
         return self.evaluate_predictions(learner, examples) + \
-               self.evaluate_explanation(learner, explanation, example, y)
+               self.evaluate_explanation(example, y, explanation)
