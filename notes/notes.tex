@@ -1,0 +1,171 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{researchpack}
+
+\usepackage{xcolor}
+\newcommand{\stefano}[1]{{\bf \textcolor{violet}{{[Stefano: #1]}}}}
+
+\newcommand{\lime}{\textsc{lime}}
+\newcommand{\mojito}{\textsc{mojito}}
+\newcommand{\tpp}{\textsc{tpp}}
+\newcommand{\better}{\succcurlyeq}
+
+\title{\mojito: Coactive Learning with \lime}
+\author{--}
+
+\begin{document}
+\maketitle
+
+Our contributions are:
+\begin{enumerate}
+    \item Applying Coactive Learning to Active Learning tasks. Actually showing
+        the prediction $y$ to the user is a prerequisite for explanations.
+    \item Using the \lime\ model-agnostic explainer for explaining the predictions.
+        The explanations encourage the user to trust the model, while making it easier
+        to provide high-quality feedback.
+    \item \stefano{Allowing the user to interact with the explanations,
+        increasing the amount of supervision provided by each query.}
+    \item \stefano{A model-agnostic strategy for learning from explanation
+        improvements.}
+\end{enumerate}
+
+\paragraph{Setting.} Given:
+%
+\begin{itemize}
+
+    \item a dataset $\calD = \{ x_1, \ldots, x_n \}$, some are
+        labelled $\calL$, some are not $\calU$.
+
+    \item a set of candidate labels $\calY$, e.g. positive/negative.
+
+    \item a target function $f^* : \calX \to \calY$
+
+    \item a class of uninterpretable models $\calF$
+
+    \item an bunch of interpretable features $\vpsi(x)$
+
+        e.g. $\vpsi$ might map documents $x$ to their 1-grams, or images $x$ to
+        their super-pixels
+
+    \item a class of interpretable models $\calG$, e.g. the set
+        of sparse linear models over the interpretable features $\vpsi$:
+        %
+        $$ g(x) = \text{sign}{\inner{w}{\vpsi(x)}} $$
+
+    \item an active learner (e.g. SVM or GP) providing three methods:
+
+        \begin{itemize}
+            \item $x \gets \textsc{SelectQuery}(f,\calD)$
+            \item $y \gets \textsc{Infer}(f,x)$
+            \item $f' \gets \textsc{Update}(f,x,y,\bar{y})$
+        \end{itemize}
+
+    \item an interpretable model generator (e.g.~\lime) providing a single method:
+
+        \begin{itemize}
+            \item $g \gets \textsc{Explain}(f,x,[y])$
+        \end{itemize}
+
+\end{itemize}
+
+\noindent
+\textbf{Goal}: learn an estimate $f$ of $f^*$ by interacting with the user
+while at the same time explaining the model's predictions.
+
+
+\paragraph{The algorithm.} See Algorithm~\ref{alg:mojito}. The algorithm
+iterates for $T$ steps. At each iteration an example $x \in \calX$ is chosen
+from $\calU$ (using some active learning selection strategy), its label $y$
+predicted according to the current model.  Then, \lime\ is used to produce an
+explanation $g$ of the prediction.  The triple $x, y, g$ is presented to the
+user. The user is free to improve the candidate prediction (and potentially the
+accompanying explanation).
+
+\begin{algorithm*}[t]
+    \caption{\label{alg:mojito} The \mojito\ algorithm.}
+    \begin{algorithmic}[1]
+        \Procedure{\mojito}{$\calL$, $\calU$, $T$}
+            \State $f^1 \gets \text{initial model}$
+            \For{ $t = 1, \dots, T$ }
+                \State $x^t \gets \textsc{SelectQuery}(f^t, \calD)$
+                \State $y^t \gets \textsc{Infer}(f^t, x^t)$
+                \State $g^t \gets \textsc{Explain}(f^t, x^t,[y^t])$
+                \State Obtain improved prediction $\bar{y}^t$ from $x^t$, $y^t$, $g^t$
+                \State [Obtain improved explanation $\bar{g}^t$ from $x^t$, $y^t$, $g^t$]
+                \State $f^{t+1} \gets \textsc{Update}(f^t,x^t,y^t,\bar{y}^t,[g^t,\bar{g}^t])$
+            \EndFor
+            \State $\textbf{return} f^{T+1}$
+        \EndProcedure
+    \end{algorithmic}
+\end{algorithm*}
+
+
+\section*{Related Work}
+
+\paragraph{Active learning.} Critique~\cite{attenberg2011inactive}.
+
+\paragraph{Coactive learning.} Coactive learning~\cite{shivaswamy2015coactive}
+is an interactive learning framework whereby, at each iteration, the learner
+selects an example $x^t$, computes a prediction $y^t$, and presents both to
+the user. The user replies with an improved prediction $\bar{y}^t$ (whenever
+an improvement exists).
+
+Learning relies on
+the fact that $\bar{y}^t$ is a better prediction than $y^t$, which induces a
+``ranking constraint'' among predictions.
+
+The main difference with respect to active learning (see
+\cite{settles2012active} for an in-depth survey) is that the learner presents
+the user both an example $x^t$ and a prediction $y^t$; on the contrary, in
+active learning only $x^t$ is presented. In other words, active learning does
+not aim at ``explaining'' the current prediction of the classifier to the
+annotator.
+
+Contrary to structured-output prediction, in binary and multi-class
+classification there is no ranking between labels. The only way to ``improve''
+a prediction $y^t$ is to change it to the correct label, i.e., $\bar{y}^t =
+f^*(x^t)$. In this case $\alpha$-informativeness does not make sense anymore.
+However, the user/oracle may provide the actual correct label with a certain
+probability rather than with certainty.
+
+The candidate prediction $y^t$ is useful because the explanation is based on
+it.
+
+\paragraph{Explainability.}
+LIME~\cite{ribeiro2016should}
+
+\paragraph{Learning from explanations.}
+\begin{itemize}
+
+    \item
+        Explanatory debugging~\cite{kulesza2015principles}
+
+    \item
+        Active learning with feature feedback (tandem
+        learning)~\cite{raghavan2006active,raghavan2007interactive}: they do
+        some form of feature selection.
+
+    \item
+        Active learning with feature labels and generalized expectation
+        criteria~\cite{druck2008learning,druck2009active,settles2011closing}.
+
+    \item
+        Feature-based feedback (dual supervision)~\cite{attenberg2010unified}.
+
+    \item
+        Active learning with rationales~\cite{sharma2015active}. On the
+        psychology of rationales: \cite{zaidan2008modeling}.
+
+    \item
+        Feature-based explanations~\cite{sharma2016towards}.
+
+    \item
+        Also very relevant: teaching guidance~\cite{cakmak2014eliciting}.
+
+\end{itemize}
+We should distinguish between explanations of the label received from the
+user/oracle (as in~\cite{teso2017coactive,sharma2015active}) and providing
+explanations for the model's decisions (as in~\cite{kulesza2015principles}).
+
+\bibliographystyle{unsrt}
+\bibliography{notes}
+\end{document}
