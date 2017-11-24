@@ -52,7 +52,7 @@ class CancerProblem(Problem):
                                          feature_names=self.feature_names,
                                          categorical_features=[],
                                          discretize_continuous=True,
-                                         verbose=True)
+                                         verbose=False)
 
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         try:
