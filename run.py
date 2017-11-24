@@ -120,7 +120,7 @@ def main():
     oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples)
     print('oracle perfs = {}'.format(oracle_perfs))
 
-    traces = []
+    traces, explanation_perfs = [], []
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
 
@@ -128,19 +128,24 @@ def main():
         known_examples = sample_examples(problem, train_examples,
                                          args.perc_known, rng)
 
-        trace = mojito.mojito(problem, evaluator, learner,
-                              train_examples, known_examples,
-                              max_iters=args.max_iters,
-                              start_explaining_at=args.start_explaining_at,
-                              improve_explanations=args.improve_explanations,
-                              num_samples=args.num_samples,
-                              num_features=args.num_features)
+        trace, explanation_perf = \
+            mojito.mojito(problem, evaluator, learner,
+                          train_examples, known_examples,
+                          max_iters=args.max_iters,
+                          start_explaining_at=args.start_explaining_at,
+                          improve_explanations=args.improve_explanations,
+                          num_samples=args.num_samples,
+                          num_features=args.num_features,
+                          eval_explanations_every=args.eval_explanations_every,
+                          rng=rng)
         traces.append(trace)
+        explanation_perfs.append(explanation_perf),
 
     mojito.dump(get_results_path(args), {
                     'args': args,
                     'num_examples': len(problem.examples),
-                    'traces': traces
+                    'traces': traces,
+                    'explanation_perfs': explanation_perfs,
                 })
 
 
