@@ -29,7 +29,7 @@ class Evaluator:
         self.num_samples = num_samples
         self.num_features = num_features
 
-    def _evaluate_pred(self, learner, examples):
+    def evaluate_predictions(self, learner, examples):
         """Evaluates a learner's predictions.
 
         The learner must be already wrapped in the preprocessing pipeline,
@@ -39,7 +39,7 @@ class Evaluator:
         Y_hat = learner.predict(X_examples)
         return prfs(self.problem.Y[examples], Y_hat, average='weighted')[:3]
 
-    def _evaluate_explanation(self, learner, explanation, example, y):
+    def evaluate_explanation(self, learner, explanation, example, y):
         """Computes the recall over the true features."""
         if explanation is None:
             return -1, -1
@@ -58,5 +58,5 @@ class Evaluator:
 
     def evaluate(self, learner, examples, explanation=None, example=None, y=None):
         """Evaluates predictions an explanations."""
-        return self._evaluate_pred(learner, examples) + \
-               self._evaluate_explanation(learner, explanation, example, y)
+        return self.evaluate_predictions(learner, examples) + \
+               self.evaluate_explanation(learner, explanation, example, y)
