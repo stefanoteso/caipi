@@ -55,10 +55,7 @@ class CancerProblem(Problem):
                                          verbose=False)
 
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
-        try:
-            pipeline = make_pipeline(_POLY, learner.model_)
-        except AttributeError:
-            pipeline = make_pipeline(_POLY, learner)
+        pipeline = make_pipeline(_POLY, learner)
         explanation = explainer.explain_instance(self.X_lime[example],
                                                  pipeline.predict_proba,
                                                  model_regressor=local_model,
