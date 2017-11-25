@@ -1,5 +1,5 @@
 - fix image features
-- track explanation discrepancy
+- compute explanation recall against actual oracle (rather than LIME explanations thereof)
 - track trustability wrt randomly selected features
 - track initial and final learner explanations
 - display oracle explanations
