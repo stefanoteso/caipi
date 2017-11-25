@@ -143,7 +143,7 @@ def draw(args):
         line.set_linewidth(2)
 
     fig.set_size_inches(4*num_perfs, 4)
-    fig.savefig(args.png_basename + 'explanations.png',
+    fig.savefig(args.png_basename + '-explanations.png',
                 bbox_inches='tight', pad_inches=0)
 
 
