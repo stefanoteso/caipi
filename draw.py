@@ -105,7 +105,7 @@ def draw(args):
     for line in legend.get_lines():
         line.set_linewidth(2)
 
-    fig.set_size_inches(12, 4)
+    fig.set_size_inches(24, 6)
     fig.savefig(args.png_basename + '.png', bbox_inches='tight', pad_inches=0)
 
 if __name__ == '__main__':
