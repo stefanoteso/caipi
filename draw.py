@@ -45,15 +45,19 @@ def get_style(args):
 def draw(args):
     plt.style.use('ggplot')
 
-    trace_args, traces = [], []
+    trace_args, traces, explanation_perfs = [], [], []
     for path in args.pickles:
         data = load(path)
         trace_args.append(data['args'])
         traces.append(data['traces'])
+        explanation_perfs.append(data['explanation_perfs'])
         num_examples = data['num_examples']
 
     traces = np.array(traces)
     # traces indices: [file, fold, iteration, metric]
+
+    explanation_perfs = np.array(explanation_perfs)
+    # shape: [file, fold, num evaluations, test example, measure]
 
     num_files = traces.shape[0]
     num_perfs = traces.shape[-1]
@@ -77,7 +81,7 @@ def draw(args):
                 x0 = x0f
             # assert x0 == x0f, 'perc_known mismatch'
 
-            xs = x0 + np.arange(0, traces_f_p.shape[1]) * FACTOR
+            xs = x0 + np.arange(traces_f_p.shape[1]) * FACTOR
             ys = np.mean(traces_f_p, axis=0)
             yerrs = np.std(traces_f_p, axis=0) / np.sqrt(traces_f_p.shape[0])
 
@@ -105,8 +109,43 @@ def draw(args):
     for line in legend.get_lines():
         line.set_linewidth(2)
 
-    fig.set_size_inches(24, 6)
+    fig.set_size_inches(4*num_perfs, 4)
     fig.savefig(args.png_basename + '.png', bbox_inches='tight', pad_inches=0)
+
+
+    num_perfs = explanation_perfs.shape[-1]
+    num_files = explanation_perfs.shape[0]
+
+    fig, axes = plt.subplots(1, num_perfs)
+
+    # For each performance metric
+    for p in range(num_perfs):
+
+        # For each result file
+        for f in range(num_files):
+            perfs = np.mean(explanation_perfs[f,:,:,:,p], axis=2)
+
+            label, color = get_style(trace_args[f])
+
+            xs = np.arange(perfs.shape[1]) * trace_args[f].eval_explanations_every
+            ys = np.mean(perfs, axis=0)
+            yerrs = np.std(perfs, axis=0) / np.sqrt(perfs.shape[0])
+
+            axes[p].plot(xs, ys, linewidth=2, label=label, color=color)
+            axes[p].fill_between(xs, ys - yerrs, ys + yerrs, linewidth=0,
+                                 alpha=0.35, color=color)
+
+    legend = axes[0].legend(loc='upper center', bbox_to_anchor=(0.5, 1.25),
+                            ncol=3, shadow=False)
+    for label in legend.get_texts():
+        label.set_fontsize('x-large')
+    for line in legend.get_lines():
+        line.set_linewidth(2)
+
+    fig.set_size_inches(4*num_perfs, 4)
+    fig.savefig(args.png_basename + 'explanations.png',
+                bbox_inches='tight', pad_inches=0)
+
 
 if __name__ == '__main__':
     import argparse
