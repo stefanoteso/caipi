@@ -33,24 +33,34 @@ class ActiveSVM(ActiveLearner):
     out of the base SVM model using Platt scaling. These are needed
     by LIME.
     """
-    def __init__(self, *args, C=1.0, **kwargs):
+    def __init__(self, *args, C=1.0, kernel='linear',  **kwargs):
         super().__init__(*args, **kwargs)
 
-        from sklearn.svm import LinearSVC
-        from sklearn.calibration import CalibratedClassifierCV
-        from sklearn.model_selection import StratifiedKFold
+        if kernel == 'linear':
+            from sklearn.svm import LinearSVC
+            from sklearn.calibration import CalibratedClassifierCV
+            from sklearn.model_selection import StratifiedKFold
 
-        # SVM learner used for classification
-        self.svm_ = LinearSVC(C=C,
-                              penalty='l2',
-                              loss='hinge',
-                              multi_class='ovr',
-                              random_state=0)
-        # Wrapper used for probability estimation
-        kfold = StratifiedKFold(random_state=0)
-        self.model_ = CalibratedClassifierCV(self.svm_,
-                                             method='sigmoid',
-                                             cv=kfold)
+            self.scoring_model_ = LinearSVC(C=C,
+                                            penalty='l2',
+                                            loss='hinge',
+                                            multi_class='ovr',
+                                            random_state=0)
+
+            cv = StratifiedKFold(random_state=0)
+            self.probabilistic_model_ = \
+                CalibratedClassifierCV(self.scoring_model_,
+                                       method='sigmoid',
+                                       cv=cv)
+        else:
+            from sklearn.svm import SVC
+
+            self.scoring_model_ = \
+            self.probabilistic_model_ = SVC(C=C,
+                                            kernel=kernel,
+                                            probability=True,
+                                            decision_function_shape='ovr',
+                                            random_state=0)
 
         self.select_query = {
             'random': self.select_at_random_,
@@ -58,18 +68,19 @@ class ActiveSVM(ActiveLearner):
             'least-margin': self.select_least_margin_,
         }[self.strategy]
 
+    def decision_function(self, X):
+        return self.scoring_model_.decision_function(X)
 
     def fit(self, X, y):
-        # XXX unfortunately fitting the calibrated classifier does not fit the
-        # SVM, so we have to fit them both.
-        self.svm_ = self.svm_.fit(X, y)
-        self.model_ = self.model_.fit(X, y)
+        self.scoring_model_.fit(X, y)
+        if self.scoring_model_ is not self.probabilistic_model_:
+            self.probabilistic_model_.fit(X, y)
 
     def predict(self, X):
-        return self.svm_.predict(X)
+        return self.scoring_model_.predict(X)
 
     def predict_proba(self, X):
-        return self.model_.predict_proba(X)
+        return self.probabilistic_model_.predict_proba(X)
 
     def select_at_random_(self, problem, examples):
         return self.rng.choice(list(examples))
@@ -78,7 +89,7 @@ class ActiveSVM(ActiveLearner):
         """Selects the example closest to the separation hyperplane."""
         examples = list(examples)
         # margins is of shape (n_examples,) or (n_examples, n_classes)
-        pipeline = problem.wrap_preproc(self.svm_)
+        pipeline = problem.wrap_preproc(self)
         margins = np.abs(pipeline.decision_function(problem.X[examples]))
         if margins.ndim == 2:
             margins = margins.min(axis=1)
