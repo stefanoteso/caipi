@@ -4,8 +4,8 @@ from .utils import *
 from . import problems
 from .problems import *
 
-from . import cancer
-from .cancer import *
+from . import tabular
+from .tabular import *
 
 from . import newsgroups
 from .newsgroups import *
