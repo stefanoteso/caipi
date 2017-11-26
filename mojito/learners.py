@@ -18,7 +18,7 @@ class ActiveLearner:
     def predict_proba(self, X):
         raise NotImplementedError('virtual method')
 
-    def fit(self, X, Y):
+    def fit(self, X, y):
         raise NotImplementedError('virtual method')
 
 

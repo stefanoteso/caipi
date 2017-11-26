@@ -75,11 +75,11 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
     learner = problem.wrap_preproc(learner)
 
     # Fit the model on the complete training set (for debug only)
-    learner.fit(problem.X[train_examples], problem.Y[train_examples])
+    learner.fit(problem.X[train_examples], problem.y[train_examples])
     full_perfs = evaluator.evaluate(learner, test_examples)
 
     # Fit the initial model on the known examples
-    learner.fit(problem.X[known_examples], problem.Y[known_examples])
+    learner.fit(problem.X[known_examples], problem.y[known_examples])
     initial_perfs = evaluator.evaluate(learner, test_examples)
 
     print(dedent('''\
@@ -118,7 +118,7 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                  if explain and improve_explanations else None)
 
         # Update the model
-        learner.fit(problem.X[known_examples], problem.Y[known_examples])
+        learner.fit(problem.X[known_examples], problem.y[known_examples])
 
         # Record the model performance
         y_diff = y_bar != y

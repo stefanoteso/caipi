@@ -20,8 +20,8 @@ class TabularProblem(Problem):
     def __init__(self, y, X, X_lime, class_names, feature_names, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.Y, self.X, self.X_lime = y, X, X_lime
-        self.examples = list(range(len(self.Y)))
+        self.y, self.X, self.X_lime = y, X, X_lime
+        self.examples = list(range(len(self.y)))
         self.class_names = class_names
         self.feature_names = feature_names
 
@@ -48,7 +48,7 @@ class TabularProblem(Problem):
         return explanation
 
     def improve(self, example, y):
-        return self.Y[example]
+        return self.y[example]
 
     def improve_explanation(self, example, y, explanation):
         class_name = (_TERM.bold +

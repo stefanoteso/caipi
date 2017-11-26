@@ -47,7 +47,7 @@ class NewsgroupsProblem(Problem):
         indices = [i for i in indices if len(all_pp_documents[i].split()) >= min_words]
 
         self.examples = list(range(len(indices)))
-        self.Y = dataset.target[indices]
+        self.y = dataset.target[indices]
         self.documents = [all_pp_documents[i] for i in indices]
         self.vectorizer = TfidfVectorizer(lowercase=False).fit(self.documents)
         self.X = self.vectorizer.transform(self.documents)
@@ -112,7 +112,7 @@ class NewsgroupsProblem(Problem):
         return explanation
 
     def improve(self, example, y):
-        return self.Y[example]
+        return self.y[example]
 
     @staticmethod
     def highlight_words(text, explanation):

@@ -27,7 +27,7 @@ class Evaluator:
         else:
             raise ValueError('unsupported oracle_kind={}'.format(oracle_kind))
 
-        self.oracle = problem.wrap_preproc(oracle).fit(problem.X, problem.Y)
+        self.oracle = problem.wrap_preproc(oracle).fit(problem.X, problem.y)
         self.num_samples = num_samples
         self.num_features = num_features
 
@@ -64,8 +64,8 @@ class Evaluator:
         if any.
         """
         X_examples = self.problem.X[examples]
-        Y_hat = learner.predict(X_examples)
-        return prfs(self.problem.Y[examples], Y_hat, average='weighted')[:3]
+        y_hat = learner.predict(X_examples)
+        return prfs(self.problem.y[examples], y_hat, average='weighted')[:3]
 
     def evaluate_explanation(self, example, y, explanation):
         """Computes the recall over the true features."""

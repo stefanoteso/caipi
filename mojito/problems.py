@@ -14,7 +14,7 @@ class Problem:
         Indices of all examples in the dataset.
     X : ndarray of shape (n_examples, n_features)
         The input part of the examples.
-    Y : ndarray of shape (n_examples,)
+    y : ndarray of shape (n_examples,)
         The supervision.
     class_names: list of str
         The class names.

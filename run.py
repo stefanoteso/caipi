@@ -56,13 +56,13 @@ def get_results_path(args):
 
 def sample_examples(problem, train_examples, perc_known, rng):
     """Samples a subset of examples, ensures that each class is represented."""
-    classes = sorted(set(problem.Y))
+    classes = sorted(set(problem.y))
     num_known = max(round(len(train_examples) * (perc_known / 100)),
                     len(classes))
     num_known_per_class = max(num_known // len(classes), 3)
     selected = []
     for y in classes:
-        y_examples = np.array([i for i in train_examples if problem.Y[i] == y])
+        y_examples = np.array([i for i in train_examples if problem.y[i] == y])
         pi = rng.permutation(len(y_examples))
         selected.extend(y_examples[pi[:num_known_per_class]])
     return np.array(selected)
@@ -111,7 +111,7 @@ def main():
     print('Creating problem...')
     problem = PROBLEMS[args.problem](rng=rng)
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
-                .split(problem.Y, problem.Y)
+                .split(problem.y, problem.y)
 
     print('Fitting the {} oracle...'.format(args.oracle_kind))
     evaluator = mojito.Evaluator(problem,

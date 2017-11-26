@@ -25,7 +25,7 @@ class _ImageProblem(Problem):
             images = self.add_correlated_noise(images, y)
 
         self.examples = list(range(len(indices)))
-        self.Y = y
+        self.y = y
         self.X = np.stack([gray2rgb(image) for image in images], 0)
 
     def add_correlated_noise(self, images, y):
@@ -83,7 +83,7 @@ class _ImageProblem(Problem):
         return explanation
 
     def improve(self, example, y):
-        return self.Y[example]
+        return self.y[example]
 
     @staticmethod
     def asciiart(image, mask=None):
