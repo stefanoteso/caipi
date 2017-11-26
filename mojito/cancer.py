@@ -1,8 +1,6 @@
 import numpy as np
 from lime.lime_tabular import LimeTabularExplainer
-from sklearn.datasets import load_breast_cancer, load_iris
 from sklearn.linear_model import Ridge
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.pipeline import make_pipeline
 from blessings import Terminal
 
@@ -18,28 +16,14 @@ def _poly(a, b):
 _POLY = PipeStep(lambda X: np.array([_poly(x, x) for x in X]))
 
 
-class CancerProblem(Problem):
-    """The breast cancer dataset.
-
-    Features:
-    - non explainable: 2nd degree homogeneous polynomial of the attributes
-    - explainable: the attributes
-
-    Partially ripped from https://github.com/marcotcr/lime
-    """
-    def __init__(self, *args, rng=None, **kwargs):
+class TabularProblem(Problem):
+    def __init__(self, y, X, X_lime, class_names, feature_names, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        dataset = load_breast_cancer()
-
-        self.Y = dataset.target
-        scaler = MinMaxScaler()
-        self.X = scaler.fit_transform(_POLY.transform(dataset.data))
-        self.X_lime = scaler.fit_transform(dataset.data)
+        self.Y, self.X, self.X_lime = y, X, X_lime
         self.examples = list(range(len(self.Y)))
-
-        self.class_names = dataset.target_names
-        self.feature_names = dataset.feature_names
+        self.class_names = class_names
+        self.feature_names = feature_names
 
     def wrap_preproc(self, model):
         return model
@@ -123,3 +107,49 @@ class CancerProblem(Problem):
                     num_retrieved += self.intersect(true_range, true_coeff,
                                                     pred_range, pred_coeff)
         return num_retrieved / num_relevant
+
+
+class IrisProblem(TabularProblem):
+    """The iris dataset.
+
+    Features:
+    - non explainable: 2nd degree homogeneous polynomial of the attributes
+    - explainable: axis-aligned constraints on the attributes
+    """
+    def __init__(self, *args, **kwargs):
+        from sklearn.datasets import load_iris
+        from sklearn.preprocessing import MinMaxScaler
+
+        dataset = load_iris()
+        scaler = MinMaxScaler()
+        super().__init__(*args,
+                         y=dataset.target,
+                         X=scaler.fit_transform(_POLY.transform(dataset.data)),
+                         X_lime=scaler.fit_transform(dataset.data),
+                         class_names=dataset.target_names,
+                         feature_names=dataset.feature_names,
+                         **kwargs)
+
+
+class CancerProblem(TabularProblem):
+    """The breast cancer dataset.
+
+    Features:
+    - non explainable: 2nd degree homogeneous polynomial of the attributes
+    - explainable: axis-aligned constraints on the attributes
+
+    Partially ripped from https://github.com/marcotcr/lime
+    """
+    def __init__(self, *args, **kwargs):
+        from sklearn.datasets import load_breast_cancer
+        from sklearn.preprocessing import MinMaxScaler
+
+        dataset = load_breast_cancer()
+        scaler = MinMaxScaler()
+        super().__init__(*args,
+                         y=dataset.target,
+                         X=scaler.fit_transform(_POLY.transform(dataset.data)),
+                         X_lime=scaler.fit_transform(dataset.data),
+                         class_names=dataset.target_names,
+                         feature_names=dataset.feature_names,
+                         **kwargs)

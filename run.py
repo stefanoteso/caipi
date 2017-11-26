@@ -10,6 +10,7 @@ from sklearn.model_selection import StratifiedKFold
 
 
 PROBLEMS = {
+    'iris': mojito.IrisProblem,
     'cancer': mojito.CancerProblem,
     'newsgroups': mojito.NewsgroupsProblem,
     'newsgroups-sport': lambda *args, **kwargs: \
