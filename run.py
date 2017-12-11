@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+import datetime
 import argparse
 import numpy as np
 import mojito
+
 
 from os.path import join
 from pprint import pprint
@@ -13,17 +15,17 @@ PROBLEMS = {
     'iris': mojito.IrisProblem,
     'cancer': mojito.CancerProblem,
     'newsgroups': mojito.NewsgroupsProblem,
-    'newsgroups-sport': lambda *args, **kwargs: \
-        mojito.NewsgroupsProblem(*args,
-            labels=('rec.sport.baseball', 'rec.sport.hockey'), **kwargs),
-    'newsgroups-religion': lambda *args, **kwargs: \
-        mojito.NewsgroupsProblem(*args,
-            labels=('alt.atheism', 'soc.religion.christian'), **kwargs),
-    'mnist-binary': lambda *args, **kwargs: \
-        mojito.MNISTProblem(*args, labels=(5, 6), **kwargs),
+    'newsgroups-sport': lambda *args, **kwargs:
+    mojito.NewsgroupsProblem(*args,
+                             labels=('rec.sport.baseball', 'rec.sport.hockey'), **kwargs),
+    'newsgroups-religion': lambda *args, **kwargs:
+    mojito.NewsgroupsProblem(*args,
+                             labels=('alt.atheism', 'soc.religion.christian'), **kwargs),
+    'mnist-binary': lambda *args, **kwargs:
+    mojito.MNISTProblem(*args, labels=(5, 6), **kwargs),
     'mnist-multiclass': mojito.MNISTProblem,
-    'fer13-binary': lambda *args, **kwargs: \
-        mojito.FER13Problem(*args, labels=(2, 5), **kwargs),
+    'fer13-binary': lambda *args, **kwargs:
+    mojito.FER13Problem(*args, labels=(2, 5), **kwargs),
     'fer13-multiclass': mojito.FER13Problem,
 }
 
@@ -35,6 +37,7 @@ LEARNERS = {
 
 
 def get_results_path(args):
+    date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     fields = [
         ('learner', args.learner),
         ('strategy', args.strategy),
@@ -48,7 +51,7 @@ def get_results_path(args):
         ('improve-explanations', args.improve_explanations),
         ('seed', args.seed),
     ]
-    filename = 'traces_{}_'.format(args.problem) + \
+    filename = 'traces_{}_{}_'.format(date_str, args.problem) + \
                '_'.join([name + '=' + str(value) for name, value in fields]) + \
                '.pickle'
     return join('results', filename)
@@ -139,15 +142,16 @@ def main():
                           num_features=args.num_features,
                           eval_explanations_every=args.eval_explanations_every,
                           rng=rng)
+
         traces.append(trace)
         explanation_perfs.append(explanation_perf),
 
     mojito.dump(get_results_path(args), {
-                    'args': args,
-                    'num_examples': len(problem.examples),
-                    'traces': traces,
-                    'explanation_perfs': explanation_perfs,
-                })
+        'args': args,
+        'num_examples': len(problem.examples),
+        'traces': traces,
+        'explanation_perfs': explanation_perfs,
+    })
 
 
 if __name__ == '__main__':
