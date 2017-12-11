@@ -10,15 +10,15 @@ PERF_TO_TITLE = ['pr', 'rc', 'F1', 'expl. rc', 'expl. fit', '# fixed predictions
 
 class Tango:
     # From light to dark
-    YELLOW  = ("#fce94f", "#edd400", "#c4a000")
-    ORANGE  = ("#fcaf3e", "#f57900", "#ce5c00")
-    BROWN   = ("#e9b96e", "#c17d11", "#8f5902")
-    GREEN   = ("#8ae234", "#73d216", "#4e9a06")
-    BLUE    = ("#729fcf", "#3465a4", "#204a87")
-    VIOLET  = ("#ad7fa8", "#75507b", "#5c3566")
-    RED     = ("#ef2929", "#cc0000", "#a40000")
-    WHITE   = ("#eeeeec", "#d3d7cf", "#babdb6")
-    BLACK   = ("#888a85", "#555753", "#2e3436")
+    YELLOW = ("#fce94f", "#edd400", "#c4a000")
+    ORANGE = ("#fcaf3e", "#f57900", "#ce5c00")
+    BROWN = ("#e9b96e", "#c17d11", "#8f5902")
+    GREEN = ("#8ae234", "#73d216", "#4e9a06")
+    BLUE = ("#729fcf", "#3465a4", "#204a87")
+    VIOLET = ("#ad7fa8", "#75507b", "#5c3566")
+    RED = ("#ef2929", "#cc0000", "#a40000")
+    WHITE = ("#eeeeec", "#d3d7cf", "#babdb6")
+    BLACK = ("#888a85", "#555753", "#2e3436")
 
 
 def get_style(args):
@@ -42,6 +42,37 @@ def get_style(args):
     return label, color
 
 
+def homogenize_fold_lengths(stat_array):
+    """
+    Transform one loaded list of arrays of tuples of arrays into a
+    homogeneous numpy array by adding cells up to the largest number of samples in a folder
+    """
+    #
+    # assuming first index is for files, second for # folds
+    n_files = len(stat_array)
+    n_folds = len(stat_array[0])
+    n_stats = stat_array[0][0].shape[-1]
+    print('# files:{} # folds:{} # stats:{}'.format(n_files,
+                                                    n_folds,
+                                                    n_stats))
+
+    fold_lengths = [len(stat_array[f][s]) for f in range(n_files) for s in range(n_folds)]
+    max_fold_length = max(fold_lengths)
+
+    for f in range(n_files):
+        for s in range(n_folds):
+            max_size = list(stat_array[f][s].shape)
+            max_size[0] = max_fold_length
+            new_stats = np.zeros(max_size, dtype=stat_array[f][s].dtype)
+            n_samples = len(stat_array[f][s])
+            new_stats[:n_samples, :] = stat_array[f][s]
+            stat_array[f][s] = new_stats
+
+    stat_array = np.array(stat_array)
+    print('homogenized shape {}'.format(stat_array.shape))
+    return stat_array
+
+
 def draw(args):
     plt.style.use('ggplot')
 
@@ -53,10 +84,14 @@ def draw(args):
         explanation_perfs.append(data['explanation_perfs'])
         num_examples = data['num_examples']
 
-    traces = np.array(traces)
+    # traces = np.array(traces)
+    print('\nChecking traces shapes')
+    traces = homogenize_fold_lengths(traces)
     # traces indices: [file, fold, iteration, metric]
 
-    explanation_perfs = np.array(explanation_perfs)
+    # explanation_perfs = np.array(explanation_perfs)
+    print('\nChecking exp perfs shapes')
+    explanation_perfs = homogenize_fold_lengths(explanation_perfs)
     # shape: [file, fold, num evaluations, test example, measure]
 
     num_files = traces.shape[0]
@@ -67,12 +102,13 @@ def draw(args):
 
     # For each performance metric
     for p in range(num_perfs):
-        traces_p = traces[:,:,:,p]
+        print(traces.shape)
+        traces_p = traces[:, :, :, p]
 
         # For each results file
         x0, ymin, ymax = None, np.inf, -np.inf
         for f in range(num_files):
-            traces_f_p = traces_p[f,:,:]
+            traces_f_p = traces_p[f, :, :]
 
             label, color = get_style(trace_args[f])
 
@@ -109,9 +145,8 @@ def draw(args):
     for line in legend.get_lines():
         line.set_linewidth(2)
 
-    fig.set_size_inches(4*num_perfs, 4)
+    fig.set_size_inches(4 * num_perfs, 4)
     fig.savefig(args.png_basename + '.png', bbox_inches='tight', pad_inches=0)
-
 
     num_perfs = explanation_perfs.shape[-1]
     num_files = explanation_perfs.shape[0]
@@ -123,7 +158,7 @@ def draw(args):
 
         # For each result file
         for f in range(num_files):
-            perfs = np.mean(explanation_perfs[f,:,:,:,p], axis=2)
+            perfs = np.mean(explanation_perfs[f, :, :, :, p], axis=2)
 
             label, color = get_style(trace_args[f])
 
@@ -142,7 +177,7 @@ def draw(args):
     for line in legend.get_lines():
         line.set_linewidth(2)
 
-    fig.set_size_inches(4*num_perfs, 4)
+    fig.set_size_inches(4 * num_perfs, 4)
     fig.savefig(args.png_basename + '-explanations.png',
                 bbox_inches='tight', pad_inches=0)
 
