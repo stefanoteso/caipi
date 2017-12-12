@@ -153,3 +153,30 @@ class CancerProblem(TabularProblem):
                          class_names=dataset.target_names,
                          feature_names=dataset.feature_names,
                          **kwargs)
+
+class TicTacToeProblem(TabularProblem):
+    """The tic-tac-toe dataset. Classify winning moves for x based on the
+    board state.
+    """
+    def __init__(self, *args, **kwargs):
+        from os.path import join
+
+        TO_X = {'b': 0, 'x': 1, 'o': -1}
+        TO_Y = {'positive': 1, 'negative': 0}
+
+        X, y = [], []
+        with open(join('data', 'tic-tac-toe.data'), 'rt') as fp:
+            for line in map(str.strip, fp.readlines()):
+                chars = line.split(',')
+                X.append([TO_X[char] for char in chars[:-1]])
+                y.append(TO_Y[chars[-1]])
+
+        X, y = np.array(X), np.array(y)
+
+        super().__init__(*args,
+                         y=y,
+                         X=_POLY.transform(X),
+                         X_lime=X,
+                         class_names=('win', 'no-win'),
+                         feature_names=('tl', 'tm', 'tr', 'ml', 'mm', 'mr', 'bl', 'bm', 'br'),
+                         **kwargs)
