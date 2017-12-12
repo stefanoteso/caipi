@@ -1,3 +1,6 @@
+from .learners import ActiveSVM
+from sklearn.utils import check_random_state
+
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import LogisticRegression
@@ -14,20 +17,29 @@ class Evaluator:
     given by a pseudo-oracle, namely a learner fit on the entire dataset
     (including the test set).
     """
+
     def __init__(self, problem, oracle_kind='l1logreg',
-                 num_samples=5000, num_features=10):
+                 num_samples=5000, num_features=10,
+                 train_examples=None):
         self.problem = problem
 
         self.oracle_kind = oracle_kind
         if oracle_kind == 'l1logreg':
             oracle = LogisticRegression(penalty='l1', C=1, max_iter=10,
                                         random_state=0)
+        elif oracle_kind == 'svm':
+            oracle = ActiveSVM(problem, strategy='random',
+                               rng=check_random_state(np.random.RandomState(0)))
+            print('oracle', oracle)
         elif oracle_kind == 'tree':
             oracle = DecisionTreeClassifier(random_state=0)
         else:
             raise ValueError('unsupported oracle_kind={}'.format(oracle_kind))
 
-        self.oracle = problem.wrap_preproc(oracle).fit(problem.X, problem.y)
+        # self.oracle = problem.wrap_preproc(oracle).fit(problem.X, problem.y)
+        self.oracle = problem.wrap_preproc(oracle).fit(problem.X[train_examples],
+                                                       problem.y[train_examples])
+        print('oracle', self.oracle)
         self.num_samples = num_samples
         self.num_features = num_features
 
@@ -67,7 +79,7 @@ class Evaluator:
         y_hat = learner.predict(X_examples)
         return prfs(self.problem.y[examples], y_hat, average='weighted')[:3]
 
-    def evaluate_explanation(self, example, y, explanation):
+    def evaluate_explanation(self, example, y, explanation, discretize=True):
         """Computes the recall over the true features."""
         if explanation is None:
             return -1, -1
@@ -79,12 +91,14 @@ class Evaluator:
                                  self.problem.examples,
                                  example, y,
                                  num_samples=self.num_samples,
-                                 num_features=self.num_features)
+                                 num_features=self.num_features,
+
+                                 discretize=discretize)
         perf = self.problem.get_explanation_perf(oracle_explanation,
                                                  explanation)
         return perf, explanation.score
 
-    def evaluate(self, learner, examples, explanation=None, example=None, y=None):
+    def evaluate(self, learner, examples, explanation=None, example=None, y=None, discretize=True):
         """Evaluates predictions an explanations."""
         return self.evaluate_predictions(learner, examples) + \
-               self.evaluate_explanation(example, y, explanation)
+            self.evaluate_explanation(example, y, explanation, discretize=discretize)

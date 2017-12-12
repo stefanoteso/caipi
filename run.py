@@ -95,6 +95,8 @@ def main():
     group.add_argument('-e', '--eval-explanations-every', type=int, default=10,
                        help='Interval for evaluating explanation performance'
                             'on the test set')
+    group.add_argument('-d', '--discretize', action='store_true',
+                       help='Whether the to discretize continuous features on tabular data')
 
     group = parser.add_argument_group('Evaluation')
     group.add_argument('-k', '--num-folds', type=int, default=10,
@@ -114,19 +116,28 @@ def main():
     print('Creating problem...')
     problem = PROBLEMS[args.problem](rng=rng)
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
-                .split(problem.y, problem.y)
+        .split(problem.y, problem.y)
 
     print('Fitting the {} oracle...'.format(args.oracle_kind))
-    evaluator = mojito.Evaluator(problem,
-                                 oracle_kind=args.oracle_kind,
-                                 num_samples=args.num_samples,
-                                 num_features=args.num_features)
-    oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples)
-    print('oracle perfs = {}'.format(oracle_perfs))
+    # evaluator = mojito.Evaluator(problem,
+    #                              oracle_kind=args.oracle_kind,
+    #                              num_samples=args.num_samples,
+    #                              num_features=args.num_features)
+    # oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples)
+    # print('oracle perfs = {}'.format(oracle_perfs))
 
     traces, explanation_perfs = [], []
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
+
+        evaluator = mojito.Evaluator(problem,
+                                     oracle_kind=args.oracle_kind,
+                                     num_samples=args.num_samples,
+                                     num_features=args.num_features,
+                                     train_examples=train_examples)
+        oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples,
+                                          discretize=args.discretize)
+        print('oracle perfs = {}'.format(oracle_perfs))
 
         learner = LEARNERS[args.learner](problem, args.strategy, rng=rng)
         known_examples = sample_examples(problem, train_examples,
@@ -141,6 +152,7 @@ def main():
                           num_samples=args.num_samples,
                           num_features=args.num_features,
                           eval_explanations_every=args.eval_explanations_every,
+                          discretize=args.discretize,
                           rng=rng)
 
         traces.append(trace)

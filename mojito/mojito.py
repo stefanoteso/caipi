@@ -18,14 +18,15 @@ def _densify_one(x):
 
 
 def predict_and_explain(problem, learner, known_examples, example,
-                        explain=False, num_samples=5000, num_features=10):
+                        explain=False, num_samples=5000, num_features=10, discretize=True):
     # Compute the prediction
     y = learner.predict(_densify_one(problem.X[example]))[0]
 
     # Compute the explanation
     g = (problem.explain(learner, known_examples, example, y,
                          num_samples=num_samples,
-                         num_features=num_features)
+                         num_features=num_features,
+                         discretize=discretize)
          if explain else None)
 
     return y, g
@@ -34,6 +35,7 @@ def predict_and_explain(problem, learner, known_examples, example,
 def mojito(problem, evaluator, learner, train_examples, known_examples,
            max_iters=100, start_explaining_at=-1, improve_explanations=False,
            num_samples=5000, num_features=10, eval_explanations_every=10,
+           discretize=True,
            rng=None):
     """An implementation of the Mojito algorithm.
 
@@ -62,6 +64,8 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         Number of explanatory features used by LIME
     eval_explanations_every : int, defaults to 10
         Interval (in iterations) between explanation evaluations.
+    discretize: bool, defaults to True
+        Wheter to discretize continuous features for tabular data
     """
     rng = check_random_state(rng)
 
@@ -76,11 +80,11 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
 
     # Fit the model on the complete training set (for debug only)
     learner.fit(problem.X[train_examples], problem.y[train_examples])
-    full_perfs = evaluator.evaluate(learner, test_examples)
+    full_perfs = evaluator.evaluate(learner, test_examples, discretize=discretize)
 
     # Fit the initial model on the known examples
     learner.fit(problem.X[known_examples], problem.y[known_examples])
-    initial_perfs = evaluator.evaluate(learner, test_examples)
+    initial_perfs = evaluator.evaluate(learner, test_examples, discretize=discretize)
 
     print(dedent('''\
             T={} #train={} #known={} #test={}
@@ -101,13 +105,14 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
 
         # Select a query from the unknown examples
         i = unwrapped_learner.select_query(problem,
-                set(train_examples) - set(known_examples))
+                                           set(train_examples) - set(known_examples))
 
         # Predict and explain
         explain = 0 <= start_explaining_at <= t
         y, g = predict_and_explain(problem, learner, known_examples, i,
                                    explain=explain, num_samples=num_samples,
-                                   num_features=num_features)
+                                   num_features=num_features,
+                                   discretize=discretize)
 
         # Ask the true label to the user
         y_bar = problem.improve(i, y)
@@ -124,9 +129,11 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         y_diff = y_bar != y
         num_errors += y_diff
         perfs = evaluator.evaluate(learner, test_examples,
-                                   example=i, y=y, explanation=g)
+                                   example=i, y=y, explanation=g,
+                                   discretize=discretize)
         print('iter {t:3d} : #{i}  y changed? {y_diff}  perfs={perfs}'
-                  .format(**locals()))
+              .format(**locals()))
+        print('TRACE len {}'.format(len(perfs + (num_errors,))))
         trace.append(perfs + (num_errors,))
 
         # Evaluate explanation performance on the test set
@@ -141,8 +148,9 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                                            known_examples[:-1], example,
                                            explain=True,
                                            num_samples=num_samples,
-                                           num_features=num_features)
-                perf = evaluator.evaluate_explanation(example, y, g)
+                                           num_features=num_features,
+                                           discretize=discretize)
+                perf = evaluator.evaluate_explanation(example, y, g, discretize=discretize)
                 print(' {}/{} : {}'.format(i, len(expl_test_examples), perf))
                 perfs.append(perf)
             explanation_perfs.append(perfs)

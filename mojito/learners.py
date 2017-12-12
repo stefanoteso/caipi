@@ -33,6 +33,7 @@ class ActiveSVM(ActiveLearner):
     out of the base SVM model using Platt scaling. These are needed
     by LIME.
     """
+
     def __init__(self, *args, C=1.0, kernel='linear',  **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -56,11 +57,11 @@ class ActiveSVM(ActiveLearner):
             from sklearn.svm import SVC
 
             self.scoring_model_ = \
-            self.probabilistic_model_ = SVC(C=C,
-                                            kernel=kernel,
-                                            probability=True,
-                                            decision_function_shape='ovr',
-                                            random_state=0)
+                self.probabilistic_model_ = SVC(C=C,
+                                                kernel=kernel,
+                                                probability=True,
+                                                decision_function_shape='ovr',
+                                                random_state=0)
 
         self.select_query = {
             'random': self.select_at_random_,
@@ -72,9 +73,11 @@ class ActiveSVM(ActiveLearner):
         return self.scoring_model_.decision_function(X)
 
     def fit(self, X, y):
-        self.scoring_model_.fit(X, y)
+        fit_model = self.scoring_model_.fit(X, y)
         if self.scoring_model_ is not self.probabilistic_model_:
-            self.probabilistic_model_.fit(X, y)
+            fit_model = self.probabilistic_model_.fit(X, y)
+
+        return fit_model
 
     def predict(self, X):
         return self.scoring_model_.predict(X)
