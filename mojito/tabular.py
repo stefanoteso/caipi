@@ -171,7 +171,7 @@ class TicTacToeProblem(TabularProblem):
                 X.append([TO_X[char] for char in chars[:-1]])
                 y.append(TO_Y[chars[-1]])
 
-        X, y = np.array(X), np.array(y)
+        X, y = np.array(X, dtype=np.float64), np.array(y, dtype=np.int8)
 
         super().__init__(*args,
                          y=y,
