@@ -3,6 +3,7 @@ from lime.lime_tabular import LimeTabularExplainer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from blessings import Terminal
+from itertools import product
 
 from .problems import Problem
 from .utils import PipeStep
@@ -50,15 +51,18 @@ class TabularProblem(Problem):
     def improve(self, example, y):
         return self.y[example]
 
+    def to_text(self, example):
+        return self.X_lime[example]
+
     def improve_explanation(self, example, y, explanation):
         class_name = (_TERM.bold +
                       _TERM.color(y) +
                       self.class_names[y] +
                       _TERM.normal)
 
-        x = self.X_lime[example]
+        text = self.to_text(example)
         print(("The model thinks that this example is '{class_name}':\n" +
-               "{x}\n" +
+               "{text}\n" +
                "because of these features:\n").format(**locals()))
 
         for constraint, coeff in explanation.as_list():
@@ -154,29 +158,57 @@ class CancerProblem(TabularProblem):
                          feature_names=dataset.feature_names,
                          **kwargs)
 
+
 class TicTacToeProblem(TabularProblem):
     """The tic-tac-toe dataset. Classify winning moves for x based on the
     board state.
     """
     def __init__(self, *args, **kwargs):
         from os.path import join
+        from sklearn.preprocessing import MinMaxScaler
 
-        TO_X = {'b': 0, 'x': 1, 'o': -1}
-        TO_Y = {'positive': 1, 'negative': 0}
-
-        X, y = [], []
+        self._boards, X_lime, y = [], [], []
         with open(join('data', 'tic-tac-toe.data'), 'rt') as fp:
             for line in map(str.strip, fp.readlines()):
-                chars = line.split(',')
-                X.append([TO_X[char] for char in chars[:-1]])
-                y.append(TO_Y[chars[-1]])
+                chars = line.replace('b', ' ').split(',')
+                board = [[chars[3*i+j] for j in range(3)] for i in range(3)]
+                self._boards.append(board)
+                X_lime.append(self.to_features(board))
+                y.append({'positive': 1, 'negative': 0}[chars[-1]])
 
-        X, y = np.array(X, dtype=np.float64), np.array(y, dtype=np.int8)
+        X_lime = np.array(X_lime, dtype=np.float64)
+        X = _POLY(X_lime)
+        y = np.array(y, dtype=np.int8)
 
+        feature_names = []
+        for i, j in product(range(3), range(3)):
+            for state in ('b', 'x', 'o'):
+                for di, dj in product([-1, +1], [-1, +1]):
+                    i2 = (i + di) % 3
+                    j2 = (j + dj) % 3
+                    feature_names.append(
+                        'board[{i},{j}] and board[{i2},{j2}] are both {state}' \
+                            .format(**locals()))
+
+        scaler = MinMaxScaler()
         super().__init__(*args,
                          y=y,
-                         X=_POLY.transform(X),
-                         X_lime=X,
+                         X=scaler.fit_transform(X),
+                         X_lime=scaler.fit_transform(X_lime),
                          class_names=('win', 'no-win'),
-                         feature_names=('tl', 'tm', 'tr', 'ml', 'mm', 'mr', 'bl', 'bm', 'br'),
+                         feature_names=feature_names,
                          **kwargs)
+
+    @staticmethod
+    def to_features(board):
+        x = []
+        for i, j in product(range(3), range(3)):
+            for state in (' ', 'x', 'o'):
+                for di, dj in product([-1, +1], [-1, +1]):
+                    i2, j2 = (i + di) % 3, (j + dj) % 3
+                    x.append(board[i][j] == state and
+                             board[i2][j2] == state)
+        return x
+
+    def to_text(self, example):
+        return '\n'.join(map(str, self._boards[example]))
