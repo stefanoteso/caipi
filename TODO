@@ -1,8 +1,18 @@
-- fix image features
-- compute explanation recall against actual oracle (rather than LIME explanations thereof)
-- track trustability wrt randomly selected features
-- track initial and final learner explanations
-- display oracle explanations
-- look at classical datasets used in active learning (esp. for comparison with
-  baselines and non-kernel-based models)
-- implement Chernoff image dataset? (100 images, must be labelled manually)
+- tabular
+    - @Stefano: implement tic-tac-toe and chess problems, make them work
+- 20newsgroups
+    - @Antonio: fix data preparation and features for text, to be used with
+      SVM and GP
+- images:
+    - @Antonio: implement active learning on the topmost layer of a pre-trained
+      deep network, choose classification task wisely
+
+- measurements
+    - @Stefano: compute recall also against DT and L1-logreg directly
+    - @Stefano: compute also precision and F1
+
+- explanations
+    - @Stefano: display oracle explanations along with LIME explanations
+    - @Stefano: track actual explanations as images or something
+
+- @all: figure out a way to solve Q3 and Q4
