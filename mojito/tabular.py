@@ -177,7 +177,7 @@ class TicTacToeProblem(TabularProblem):
                 y.append({'positive': 1, 'negative': 0}[chars[-1]])
 
         X_lime = np.array(X_lime, dtype=np.float64)
-        X = _POLY(X_lime)
+        X = _POLY.transform(X_lime)
         y = np.array(y, dtype=np.int8)
 
         feature_names = []
