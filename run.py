@@ -107,6 +107,8 @@ def main():
                        help='Maximum number of learning iterations')
     group.add_argument('-O', '--oracle-kind', type=str, default='l1logreg',
                        help='Kind of explanation oracle to use')
+    group.add_argument('-x', '--n-test-examples-exp', type=int, default=20,
+                       help='Number of test examples to use for measuring explanation perfs')
     args = parser.parse_args()
 
     np.seterr(all='raise')
@@ -153,6 +155,7 @@ def main():
                           num_features=args.num_features,
                           eval_explanations_every=args.eval_explanations_every,
                           discretize=args.discretize,
+                          n_test_examples_exp=args.n_test_examples_exp,
                           rng=rng)
 
         traces.append(trace)
