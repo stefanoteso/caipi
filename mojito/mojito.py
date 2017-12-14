@@ -82,7 +82,10 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
 
     # Fit the model on the complete training set (for debug only)
     learner.fit(problem.X[train_examples], problem.y[train_examples])
-    full_perfs = evaluator.evaluate(learner, test_examples, discretize=discretize)
+    print('Train samples')
+    train_full_perfs = evaluator.evaluate(learner, train_examples, discretize=discretize)
+    print('Test samples')
+    test_full_perfs = evaluator.evaluate(learner, test_examples, discretize=discretize)
 
     # Fit the initial model on the known examples
     learner.fit(problem.X[known_examples], problem.y[known_examples])
@@ -90,10 +93,11 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
 
     print(dedent('''\
             T={} #train={} #known={} #test={}
-            full training set perfs = {}
+            full data set perfs (train)= {}
+            full data set perfs (test)= {}
             initial perfs = {}
         ''').format(max_iters, len(train_examples), len(known_examples),
-                    len(test_examples), full_perfs, initial_perfs))
+                    len(test_examples), train_full_perfs, test_full_perfs, initial_perfs))
 
     num_errors = 0
     trace, explanation_perfs = [initial_perfs + (0,)], []
@@ -130,13 +134,15 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         # Record the model performance
         y_diff = y_bar != y
         num_errors += y_diff
-        perfs = evaluator.evaluate(learner, test_examples,
-                                   example=i, y=y, explanation=g,
-                                   discretize=discretize)
-        print('iter {t:3d} : #{i}  y changed? {y_diff}  perfs={perfs}'
+        test_perfs = evaluator.evaluate(learner, test_examples,
+                                        example=i, y=y, explanation=g,
+                                        discretize=discretize)
+        train_perfs = evaluator.evaluate(learner, train_examples,
+                                         discretize=discretize)
+        print('iter {t:3d} : #{i}  y changed? {y_diff}\n\ttrain-perfs={train_perfs} test-perfs={test_perfs}'
               .format(**locals()))
-        print('TRACE len {}'.format(len(perfs + (num_errors,))))
-        trace.append(perfs + (num_errors,))
+        print('TRACE len {}'.format(len(test_perfs + (num_errors,))))
+        trace.append(test_perfs + (num_errors,))
 
         # Evaluate explanation performance on the test set
         if not explain:
