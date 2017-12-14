@@ -8,7 +8,10 @@ import mojito
 
 from os.path import join
 from pprint import pprint
+
 from sklearn.model_selection import StratifiedKFold
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
 
 
 PROBLEMS = {
@@ -142,12 +145,29 @@ def main():
     # oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples)
     # print('oracle perfs = {}'.format(oracle_perfs))
 
+    def get_oracle(oracle_kind):
+        # self.oracle_kind = oracle_kind
+        if oracle_kind == 'l1logreg':
+            oracle = LogisticRegression(penalty='l1', C=1, max_iter=10,
+                                        random_state=0)
+        elif oracle_kind == 'tree':
+            oracle = DecisionTreeClassifier(random_state=0)
+        elif oracle_kind == 'base':
+            print('\n\t>>> Using base classifier {} as oracle\n'.format(args.learner))
+            oracle = LEARNERS[args.learner](problem, args.strategy, rng=rng, **learner_args)
+        else:
+            raise ValueError('unsupported oracle_kind={}'.format(oracle_kind))
+        return oracle
+
+    oracle = get_oracle(args.oracle_kind)
+
     traces, explanation_perfs = [], []
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
 
         evaluator = mojito.Evaluator(problem,
-                                     oracle_kind=args.oracle_kind,
+                                     # oracle_kind=args.oracle_kind,
+                                     oracle=oracle,
                                      num_samples=args.num_samples,
                                      num_features=args.num_features,
                                      train_examples=train_examples)

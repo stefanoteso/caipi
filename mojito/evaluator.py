@@ -18,23 +18,25 @@ class Evaluator:
     (including the test set).
     """
 
-    def __init__(self, problem, oracle_kind='l1logreg',
+    def __init__(self, problem,
+                 # oracle_kind='l1logreg',
+                 oracle=None,
                  num_samples=5000, num_features=10,
                  train_examples=None):
         self.problem = problem
 
-        self.oracle_kind = oracle_kind
-        if oracle_kind == 'l1logreg':
-            oracle = LogisticRegression(penalty='l1', C=1, max_iter=10,
-                                        random_state=0)
-        elif oracle_kind == 'svm':
-            oracle = ActiveSVM(problem, strategy='random',
-                               rng=check_random_state(np.random.RandomState(0)))
-            print('oracle', oracle)
-        elif oracle_kind == 'tree':
-            oracle = DecisionTreeClassifier(random_state=0)
-        else:
-            raise ValueError('unsupported oracle_kind={}'.format(oracle_kind))
+        # self.oracle_kind = oracle_kind
+        # if oracle_kind == 'l1logreg':
+        #     oracle = LogisticRegression(penalty='l1', C=1, max_iter=10,
+        #                                 random_state=0)
+        # elif oracle_kind == 'svm':
+        #     oracle = ActiveSVM(problem, strategy='random',
+        #                        rng=check_random_state(np.random.RandomState(0)))
+        #     print('oracle', oracle)
+        # elif oracle_kind == 'tree':
+        #     oracle = DecisionTreeClassifier(random_state=0)
+        # else:
+        #     raise ValueError('unsupported oracle_kind={}'.format(oracle_kind))
 
         # self.oracle = problem.wrap_preproc(oracle).fit(problem.X, problem.y)
         self.oracle = problem.wrap_preproc(oracle).fit(problem.X[train_examples],
