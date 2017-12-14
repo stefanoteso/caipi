@@ -37,6 +37,9 @@ class ActiveSVM(ActiveLearner):
     def __init__(self, *args, C=1.0, kernel='linear',  **kwargs):
         super().__init__(*args, **kwargs)
 
+        # dirty hack
+        C = float(C)
+
         if kernel == 'linear':
             from sklearn.svm import LinearSVC
             from sklearn.calibration import CalibratedClassifierCV
@@ -55,13 +58,26 @@ class ActiveSVM(ActiveLearner):
                                        cv=cv)
         else:
             from sklearn.svm import SVC
+            from sklearn.calibration import CalibratedClassifierCV
+            from sklearn.model_selection import StratifiedKFold
 
-            self.scoring_model_ = \
-                self.probabilistic_model_ = SVC(C=C,
-                                                kernel=kernel,
-                                                probability=True,
-                                                decision_function_shape='ovr',
-                                                random_state=0)
+            # self.scoring_model_ = \
+            #     self.probabilistic_model_ = SVC(C=C,
+            #                                     kernel=kernel,
+            #                                     probability=True,
+            #                                     decision_function_shape='ovr',
+            #                                     random_state=0)
+            self.scoring_model_ = SVC(C=C,
+                                      kernel=kernel,
+                                      probability=True,
+                                      decision_function_shape='ovr',
+                                      random_state=0)
+
+            cv = StratifiedKFold(random_state=0)
+            self.probabilistic_model_ = \
+                CalibratedClassifierCV(self.scoring_model_,
+                                       method='sigmoid',
+                                       cv=cv)
 
         self.select_query = {
             'random': self.select_at_random_,
