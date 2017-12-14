@@ -82,6 +82,10 @@ def main():
                         help='Query selection strategy to use')
     parser.add_argument('-s', '--seed', type=int, default=0,
                         help='RNG seed')
+    parser.add_argument('--learner-args', type=str, nargs='?',
+                        help='Additional sklearn parameters for the learner' +
+                        ' in the form of a list attribute=val' +
+                        ' "name1=val1,..,namek=valk"')
 
     group = parser.add_argument_group('Explanations')
     group.add_argument('-E', '--start-explaining-at', type=int, default=-1,
@@ -120,6 +124,16 @@ def main():
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
         .split(problem.y, problem.y)
 
+    learner_args = None
+    if args.learner_args is not None:
+        learner_key_value_pairs = args.learner_args.split(',')
+        learner_args = {key.strip(): value.strip() for key, value in
+                        [pair.strip().split('=')
+                         for pair in learner_key_value_pairs]}
+    else:
+        learner_args = {}
+    print('Learner additional parameters {}'.format(learner_args))
+
     print('Fitting the {} oracle...'.format(args.oracle_kind))
     # evaluator = mojito.Evaluator(problem,
     #                              oracle_kind=args.oracle_kind,
@@ -141,7 +155,7 @@ def main():
                                           discretize=args.discretize)
         print('oracle perfs = {}'.format(oracle_perfs))
 
-        learner = LEARNERS[args.learner](problem, args.strategy, rng=rng)
+        learner = LEARNERS[args.learner](problem, args.strategy, rng=rng, **learner_args)
         known_examples = sample_examples(problem, train_examples,
                                          args.perc_known, rng)
 
