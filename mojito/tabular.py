@@ -40,7 +40,7 @@ class TabularProblem(Problem):
                                          verbose=False)
 
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
-        pipeline = make_pipeline(_POLY, learner)
+        pipeline = self.get_pipeline(learner)
         explanation = explainer.explain_instance(self.X_lime[example],
                                                  pipeline.predict_proba,
                                                  model_regressor=local_model,
@@ -134,6 +134,9 @@ class IrisProblem(TabularProblem):
                          feature_names=dataset.feature_names,
                          **kwargs)
 
+    def get_pipeline(self, learner):
+        return make_pipeline(_POLY, learner)
+
 
 class CancerProblem(TabularProblem):
     """The breast cancer dataset.
@@ -158,10 +161,18 @@ class CancerProblem(TabularProblem):
                          feature_names=dataset.feature_names,
                          **kwargs)
 
+    def get_pipeline(self, learner):
+        return make_pipeline(_POLY, learner)
+
 
 class TicTacToeProblem(TabularProblem):
     """The tic-tac-toe dataset. Classify winning moves for x based on the
     board state.
+
+    Uninterpretable features include all combinations of positions in the
+    board.
+
+    Interpretable features include individual board pieces.
     """
     def __init__(self, *args, **kwargs):
         from os.path import join
@@ -173,22 +184,22 @@ class TicTacToeProblem(TabularProblem):
                 chars = line.replace('b', ' ').split(',')
                 board = [[chars[3*i+j] for j in range(3)] for i in range(3)]
                 self._boards.append(board)
-                X_lime.append(self.to_features(board))
+                X_lime.append(self.to_lime_features(board))
                 y.append({'positive': 1, 'negative': 0}[chars[-1]])
 
         X_lime = np.array(X_lime, dtype=np.float64)
-        X = _POLY.transform(X_lime)
+        X = [self.to_features(x_lime) for x_lime in X_lime]
         y = np.array(y, dtype=np.int8)
+
+        self.pipestep = PipeStep(lambda X_lime: np.array([
+                self.to_features(x_lime) for x_lime in X_lime
+            ]))
 
         feature_names = []
         for i, j in product(range(3), range(3)):
-            for state in ('b', 'x', 'o'):
-                for di, dj in product([-1, +1], [-1, +1]):
-                    i2 = (i + di) % 3
-                    j2 = (j + dj) % 3
-                    feature_names.append(
-                        'board[{i},{j}] and board[{i2},{j2}] are both {state}' \
-                            .format(**locals()))
+            for state in (' ', 'x', 'o'):
+                feature_names.append('board[{i},{j}] is a "{state}"'.format(
+                    **locals()))
 
         scaler = MinMaxScaler()
         super().__init__(*args,
@@ -199,16 +210,37 @@ class TicTacToeProblem(TabularProblem):
                          feature_names=feature_names,
                          **kwargs)
 
+    def to_text(self, example):
+        """Turns an example into a string describing the board state."""
+        return '\n'.join(map(str, self._boards[example]))
+
     @staticmethod
-    def to_features(board):
+    def to_lime_features(board):
+        """Turns a board into interpretable features."""
+        x_lime = []
+        for i, j in product(range(3), range(3)):
+            for piece in (' ', 'x', 'o'):
+                x_lime.append(board[i][j] == piece)
+        return np.array(x_lime, dtype=np.float64)
+
+    @staticmethod
+    def to_features(x_lime):
+        """Turns interpretable features into uninterpretable features.
+
+        Note that the features do wrap around the board. It's more fair this
+        way.
+        """
+        def is_piece_at(x_lime, i, j, piece):
+            return x_lime[i*9 + j*3 + piece]
+
         x = []
         for i, j in product(range(3), range(3)):
-            for state in (' ', 'x', 'o'):
-                for di, dj in product([-1, +1], [-1, +1]):
-                    i2, j2 = (i + di) % 3, (j + dj) % 3
-                    x.append(board[i][j] == state and
-                             board[i2][j2] == state)
+            for di, dj in product([-1, +1], [-1, +1]):
+                i2, j2 = (i + di) % 3, (j + dj) % 3
+                for piece in range(3):
+                    x.append(is_piece_at(x_lime, i, j, piece) and
+                             is_piece_at(x_lime, i2, j2, piece))
         return x
 
-    def to_text(self, example):
-        return '\n'.join(map(str, self._boards[example]))
+    def get_pipeline(self, learner):
+        return make_pipeline(self.pipestep, learner)
