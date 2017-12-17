@@ -1,5 +1,5 @@
 - tabular
-    - @Stefano: implement tic-tac-toe and chess problems, make them work
+    - @Stefano: make tictactoe explanations work
 - 20newsgroups
     - @Antonio: fix data preparation and features for text, to be used with
       SVM and GP
