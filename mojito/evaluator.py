@@ -82,7 +82,7 @@ class Evaluator:
                                  num_features=self.num_features)
         perf = self.problem.get_explanation_perf(oracle_explanation,
                                                  explanation)
-        return perf, explanation.score
+        return perf + (explanation.score,)
 
     def evaluate(self, learner, examples, explanation=None, example=None, y=None):
         """Evaluates predictions an explanations."""
