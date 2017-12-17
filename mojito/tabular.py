@@ -79,7 +79,7 @@ class TabularProblem(Problem):
         return explanation
 
     @staticmethod
-    def to_range(feat):
+    def to_name_range(feat):
         if ' > ' in feat:
             # 'feature > value'
             name, lb = feat.split(' > ')
@@ -104,17 +104,26 @@ class TabularProblem(Problem):
         return 0
 
     def get_explanation_perf(self, true_explanation, pred_explanation):
-        """Compute the explanation recall."""
-        num_retrieved, num_relevant = 0, 0
-        for true_feat, true_coeff in true_explanation.as_list():
-            true_name, true_range = self.to_range(true_feat)
-            num_relevant += int(np.abs(true_coeff) > self.min_coeff)
-            for pred_feat, pred_coeff in pred_explanation.as_list():
-                pred_name, pred_range = self.to_range(pred_feat)
-                if true_name == pred_name:
-                    num_retrieved += self.intersect(true_range, true_coeff,
-                                                    pred_range, pred_coeff)
-        return num_retrieved / num_relevant
+        """Compute explanation precision, recall, and F1."""
+        def to_name_range_coeff(explanation):
+            return [(*self.to_name_range(feat), coeff)
+                    for feat, coeff in explanation.as_list()
+                    if np.abs(coeff) > self.min_coeff]
+
+        true = to_name_range_coeff(true_explanation)
+        pred = to_name_range_coeff(pred_explanation)
+
+        num_hits = 0
+        for true_name, true_range, true_coeff in true:
+            for pred_name, pred_range, pred_coeff in pred:
+                if (true_name == pred_name and
+                    np.sign(true_coeff) == np.sign(pred_coeff)):
+                    num_hits += self.intersect(true_range, true_coeff,
+                                               pred_range, pred_coeff)
+
+        pr = num_hits / len(pred)
+        rc = num_hits / len(true)
+        return pr, rc, 2 * pr * rc / (pr + rc + 1e-6)
 
 
 class IrisProblem(TabularProblem):
