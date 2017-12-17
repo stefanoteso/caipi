@@ -54,14 +54,18 @@ class TabularProblem(Problem):
     def to_text(self, example):
         return self.X_lime[example]
 
-    def improve_explanation(self, example, y, explanation):
-        class_name = (_TERM.bold +
-                      _TERM.color(y) +
-                      self.class_names[y] +
-                      _TERM.normal)
+    def get_class_name(self, y):
+        return (_TERM.bold +
+                _TERM.color(y) +
+                self.class_names[y] +
+                _TERM.normal)
 
+    def improve_explanation(self, example, y, explanation):
+        class_name = self.get_class_name(y)
+        true_class_name = self.get_class_name(self.y[example])
         text = self.to_text(example)
-        print(("The model thinks that this example is '{class_name}':\n" +
+        print(("The model thinks that this example is '{class_name}'"
+               "(while it should be '{true_class_name}'):\n" +
                "{text}\n" +
                "because of these features:\n").format(**locals()))
 
