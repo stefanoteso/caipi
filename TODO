@@ -9,7 +9,6 @@
 
 - measurements
     - @Stefano: compute recall also against DT and L1-logreg directly
-    - @Stefano: compute also precision and F1
 
 - explanations
     - @Stefano: display oracle explanations along with LIME explanations
