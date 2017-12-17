@@ -36,7 +36,7 @@ class TabularProblem(Problem):
                                          class_names=self.class_names,
                                          feature_names=self.feature_names,
                                          categorical_features=[],
-                                         discretize_continuous=True,
+                                         discretize_continuous=False,
                                          verbose=False)
 
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
@@ -89,10 +89,13 @@ class TabularProblem(Problem):
             name, ub = feat.split(' <= ')
             lb, name = name.split(' < ')
             lb, ub = float(lb), float(ub)
-        else:
+        elif ' <= ' in feat:
             # 'feature <= value'
             name, ub = feat.split(' <= ')
             lb, ub = -np.inf, float(ub)
+        else:
+            name = feat
+            lb, ub = -np.inf, np.inf
         return name, (lb, ub)
 
     @staticmethod
