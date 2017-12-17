@@ -118,6 +118,9 @@ def draw(args):
 
     fig, axes = plt.subplots(1, num_perfs)
 
+    if trace_args[0].start_explaining_at < 0:
+        return
+
     # For each performance metric
     for p in range(num_perfs):
 
