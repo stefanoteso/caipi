@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.pipeline import Pipeline
 from skimage.color import gray2rgb, rgb2gray
-from sklearn.metrics import recall_score
+from sklearn.metrics import precision_recall_fscore_support as prfs
 from lime.lime_image import LimeImageExplainer
 from blessings import Terminal
 
@@ -121,7 +121,7 @@ class _ImageProblem(Problem):
         index = self.labels.index(pred_explanation.y)
         true_mask = clamp(true_explanation.masks[index].ravel())
         pred_mask = clamp(pred_explanation.masks[index].ravel())
-        return recall_score(true_mask, pred_mask)
+        return prfs(true_mask, pred_mask)[:3]
 
 
 
