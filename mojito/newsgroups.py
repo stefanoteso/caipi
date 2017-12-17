@@ -158,10 +158,12 @@ class NewsgroupsProblem(Problem):
         return explanation
 
     def get_explanation_perf(self, true_explanation, pred_explanation):
-        matches = 0
+        num_hits = 0
         for true_word, true_coeff in true_explanation.as_list():
             for pred_word, pred_coeff in pred_explanation.as_list():
                 if true_word == pred_word and \
                     np.sign(true_coeff) == np.sign(pred_coeff):
-                    matches += 1
-        return matches / len(true_explanation.as_list())
+                    num_hits += 1
+        pr = num_hits / len(pred_explanation.as_list())
+        rc = num_hits / len(true_explanation.as_list())
+        return pr, rc, 2 * pr * rc / (pr + rc + 1e-6)
