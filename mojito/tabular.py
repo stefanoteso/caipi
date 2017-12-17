@@ -237,13 +237,27 @@ class TicTacToeProblem(TabularProblem):
         def is_piece_at(x_lime, i, j, piece):
             return x_lime[i*9 + j*3 + piece]
 
+        TRIPLETS = list(product(range(3), repeat=3))
+
         x = []
-        for i, j in product(range(3), range(3)):
-            for di, dj in product([-1, +1], [-1, +1]):
-                i2, j2 = (i + di) % 3, (j + dj) % 3
-                for piece in range(3):
-                    x.append(is_piece_at(x_lime, i, j, piece) and
-                             is_piece_at(x_lime, i2, j2, piece))
+        for i in range(3):
+            x.extend([is_piece_at(x_lime, i, 0, triplet[0]) and
+                      is_piece_at(x_lime, i, 1, triplet[1]) and
+                      is_piece_at(x_lime, i, 2, triplet[2])
+                      for triplet in TRIPLETS])
+        for j in range(3):
+            x.extend([is_piece_at(x_lime, 0, j, triplet[0]) and
+                      is_piece_at(x_lime, 1, j, triplet[1]) and
+                      is_piece_at(x_lime, 2, j, triplet[2])
+                      for triplet in TRIPLETS])
+        x.extend([is_piece_at(x_lime, 0, 0, triplet[0]) and
+                  is_piece_at(x_lime, 1, 1, triplet[1]) and
+                  is_piece_at(x_lime, 2, 2, triplet[2])
+                  for triplet in TRIPLETS])
+        x.extend([is_piece_at(x_lime, 0, 2, triplet[0]) and
+                  is_piece_at(x_lime, 1, 1, triplet[1]) and
+                  is_piece_at(x_lime, 2, 0, triplet[2])
+                  for triplet in TRIPLETS])
         return x
 
     def get_pipeline(self, learner):
