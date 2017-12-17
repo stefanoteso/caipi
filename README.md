@@ -26,7 +26,10 @@ For the complete list of options, type:
 
 Datasets
 --------
-For the FER'13 emotion recognition dataset, download the dataset from the
-[Kaggle](https://www.kaggle.com/c/challenges-in-representation-learning-facial-expression-recognition-challenge)
-challenge page and place the uncompressed data into the `data/` directory. Then
-run the `fer13_preprocess.py` script.
+The tic-tac-toe endgame dataset can be found at
+[UCI](https://archive.ics.uci.edu/ml/datasets/Tic-Tac-Toe+Endgame)
+
+The FER'13 emotion recognition dataset can be found on the
+[Kaggle challenge](https://www.kaggle.com/c/challenges-in-representation-learning-facial-expression-recognition-challenge)
+page. Place the uncompressed data into the `data/` directory and run the
+`fer13_preprocess.py` script.
