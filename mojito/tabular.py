@@ -327,4 +327,5 @@ class TicTacToeProblem(TabularProblem):
 
         # Save the PNG
         fig.savefig(basename + '.png', bbox_inches=0, pad_inches=0)
+        plt.close(fig)
 
