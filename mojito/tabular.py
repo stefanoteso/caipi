@@ -278,7 +278,7 @@ class TicTacToeProblem(TabularProblem):
         # Convert features into a score by looking at the example
         score = np.zeros((3, 3))
         for feat_name, coeff in explanation.as_list():
-            if np.abs(coeff) >= 1e-2:
+            if np.abs(coeff) > self.min_coeff:
                 i, j, piece = feat_name.split()
                 i, j = int(i), int(j)
                 if board[i][j] == piece:
