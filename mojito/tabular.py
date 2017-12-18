@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from lime.lime_tabular import LimeTabularExplainer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
@@ -187,10 +188,9 @@ class TicTacToeProblem(TabularProblem):
     """The tic-tac-toe dataset. Classify winning moves for x based on the
     board state.
 
-    Uninterpretable features include all combinations of positions in the
-    board.
+    Uninterpretable features include all possible triplets of pieces.
 
-    Interpretable features include individual board pieces.
+    Interpretable features are the pieces on the board, i.e. x, o and blank.
     """
     def __init__(self, *args, **kwargs):
         from os.path import join
@@ -199,7 +199,7 @@ class TicTacToeProblem(TabularProblem):
         self._boards, X_lime, y = [], [], []
         with open(join('data', 'tic-tac-toe.data'), 'rt') as fp:
             for line in map(str.strip, fp.readlines()):
-                chars = line.replace('b', ' ').split(',')
+                chars = line.split(',')
                 board = [[chars[3*i+j] for j in range(3)] for i in range(3)]
                 self._boards.append(board)
                 X_lime.append(self.to_lime_features(board))
@@ -215,16 +215,15 @@ class TicTacToeProblem(TabularProblem):
 
         feature_names = []
         for i, j in product(range(3), range(3)):
-            for state in (' ', 'x', 'o'):
-                feature_names.append('board[{i},{j}] is a "{state}"'.format(
-                    **locals()))
+            for state in ('b', 'x', 'o'):
+                feature_names.append('{i} {j} {state}'.format( **locals()))
 
         scaler = MinMaxScaler()
         super().__init__(*args,
                          y=y,
                          X=scaler.fit_transform(X),
                          X_lime=scaler.fit_transform(X_lime),
-                         class_names=('win', 'no-win'),
+                         class_names=('no-win', 'win'),
                          feature_names=feature_names,
                          **kwargs)
 
@@ -237,17 +236,13 @@ class TicTacToeProblem(TabularProblem):
         """Turns a board into interpretable features."""
         x_lime = []
         for i, j in product(range(3), range(3)):
-            for piece in (' ', 'x', 'o'):
+            for piece in ('b', 'x', 'o'):
                 x_lime.append(board[i][j] == piece)
         return np.array(x_lime, dtype=np.float64)
 
     @staticmethod
     def to_features(x_lime):
-        """Turns interpretable features into uninterpretable features.
-
-        Note that the features do wrap around the board. It's more fair this
-        way.
-        """
+        """Turns interpretable features into uninterpretable features."""
         def is_piece_at(x_lime, i, j, piece):
             return x_lime[i*9 + j*3 + piece]
 
@@ -276,3 +271,57 @@ class TicTacToeProblem(TabularProblem):
 
     def get_pipeline(self, learner):
         return make_pipeline(self.pipestep, learner)
+
+    def save_explanation(self, basename, example, y, explanation):
+
+        # Convert features into relevance of board positions
+        relevance = np.zeros((3, 3))
+        for feat_name, coeff in explanation.as_list():
+            if np.abs(coeff) >= 1e-2:
+                i, j, piece = feat_name.split()
+                relevance[int(i), int(j)] += 1
+
+        fig = plt.figure(figsize=[3, 3])
+        ax = fig.add_subplot(111)
+
+        # Draw the board
+        for i in range(4):
+            ax.plot([i, i], [0, 3], 'k')
+            ax.plot([0, 3], [i, i], 'k')
+
+        ax.set_position([0, 0, 1, 1])
+        ax.set_axis_off()
+        ax.set_xlim(-1, 4)
+        ax.set_ylim(-1, 4)
+
+        board = self._boards[example]
+        for i, j in product(range(3), range(3)):
+
+            # Draw the piece
+            if board[i][j] != 'b':
+                ax.plot(3 - (j + 0.5),
+                        3 - (i + 0.5),
+                        board[i][j],
+                        markersize=25,
+                        markerfacecolor=(0, 0, 0),
+                        markeredgecolor=(0, 0, 0),
+                        markeredgewidth=2)
+
+            # Draw the explanation highlight
+            if relevance[i][j] != 0:
+                ax.plot(3 - (j + 0.5),
+                        3 - (i + 0.5),
+                        's',
+                        markersize=35,
+                        markerfacecolor=(1, 0, 0, 0.3),
+                        markeredgewidth=0)
+
+        # Draw the prediction
+        ax.text(0.2, 0.825,
+                (self.class_names[y] + ' ' +
+                 '(' + self.class_names[self.y[example]] + ')'),
+                transform=ax.transAxes)
+
+        # Save the PNG
+        fig.savefig(basename + '.png', bbox_inches=0, pad_inches=0)
+
