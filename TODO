@@ -1,5 +1,7 @@
 - tabular
     - @Stefano: make tictactoe explanations work
+    - @Stefano: compare to oracle DT and "active" DT since DTs can solve tictactoe exactly
+
 - 20newsgroups
     - @Antonio: fix data preparation and features for text, to be used with
       SVM and GP
