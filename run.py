@@ -147,7 +147,7 @@ def main():
                           num_samples=args.num_samples,
                           num_features=args.num_features,
                           eval_explanations_every=args.eval_explanations_every,
-                          explanations_basename=explanations_basename,
+                          explanations_basename=explanations_basename + '_fold={}'.format(k),
                           rng=rng)
         traces.append(trace)
         explanation_perfs.append(explanation_perf),
