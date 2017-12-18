@@ -124,8 +124,8 @@ class TabularProblem(Problem):
                     num_hits += self.intersect(true_range, true_coeff,
                                                pred_range, pred_coeff)
 
-        pr = num_hits / len(pred)
-        rc = num_hits / len(true)
+        pr = (num_hits / len(pred)) if len(pred) else 0
+        rc = (num_hits / len(true)) if len(true) else 0
         return pr, rc, 2 * pr * rc / (pr + rc + 1e-6)
 
 
