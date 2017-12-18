@@ -34,7 +34,7 @@ def predict_and_explain(problem, learner, known_examples, example,
 def mojito(problem, evaluator, learner, train_examples, known_examples,
            max_iters=100, start_explaining_at=-1, improve_explanations=False,
            num_samples=5000, num_features=10, eval_explanations_every=10,
-           rng=None):
+           explanations_basename=None, rng=None):
     """An implementation of the Mojito algorithm.
 
     Parameters
@@ -62,6 +62,8 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         Number of explanatory features used by LIME
     eval_explanations_every : int, defaults to 10
         Interval (in iterations) between explanation evaluations.
+    explanations_basename : str, defaults to None
+        Base filename of the test-set explanations.
     """
     rng = check_random_state(rng)
 
@@ -114,8 +116,8 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         known_examples.append(i)
 
         # Ask an improved explanation to the user
-        g_bar = (problem.improve_explanation(i, y, g)
-                 if explain and improve_explanations else None)
+        if explain and improve_explanations:
+            problem.improve_explanation(i, y, g)
 
         # Update the model
         learner.fit(problem.X[known_examples], problem.y[known_examples])
@@ -145,6 +147,9 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                 perf = evaluator.evaluate_explanation(example, y, g)
                 print(' {}/{} : {}'.format(i, len(expl_test_examples), perf))
                 perfs.append(perf)
+
+                basename = '{explanations_basename}_i={i}_t={t}'.format(**locals())
+                problem.save_explanation(basename, i, y, g)
             explanation_perfs.append(perfs)
 
     return np.array(trace), np.array(explanation_perfs)

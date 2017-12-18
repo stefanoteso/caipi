@@ -35,7 +35,7 @@ LEARNERS = {
 }
 
 
-def get_results_path(args):
+def get_args_str(args):
     fields = [
         ('learner', args.learner),
         ('strategy', args.strategy),
@@ -49,10 +49,16 @@ def get_results_path(args):
         ('improve-explanations', args.improve_explanations),
         ('seed', args.seed),
     ]
-    filename = 'traces_{}_'.format(args.problem) + \
-               '_'.join([name + '=' + str(value) for name, value in fields]) + \
-               '.pickle'
-    return join('results', filename)
+    return (args.problem + '_' +
+            '_'.join([name + '=' + str(value) for name, value in fields]))
+
+
+def get_results_path(args):
+    return join('results', 'traces_' + get_args_str(args) + '.pickle')
+
+
+def get_explanations_basename(args):
+    return join('results', 'explanation_' + get_args_str(args))
 
 
 def sample_examples(problem, train_examples, perc_known, rng):
@@ -122,6 +128,8 @@ def main():
     oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples)
     print('oracle perfs = {}'.format(oracle_perfs))
 
+    explanations_basename = get_explanations_basename(args)
+
     traces, explanation_perfs = [], []
     for k, (train_examples, test_examples) in enumerate(folds):
         print('Running fold {}/{}'.format(k + 1, args.num_folds))
@@ -139,6 +147,7 @@ def main():
                           num_samples=args.num_samples,
                           num_features=args.num_features,
                           eval_explanations_every=args.eval_explanations_every,
+                          explanations_basename=explanations_basename,
                           rng=rng)
         traces.append(trace)
         explanation_perfs.append(explanation_perf),

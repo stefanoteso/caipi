@@ -157,6 +157,9 @@ class NewsgroupsProblem(Problem):
 
         return explanation
 
+    def save_explanation(self, basename, example, y, explanation):
+        pass
+
     def get_explanation_perf(self, true_explanation, pred_explanation):
         true = to_name_range_coeff(true_explanation)
         pred = to_name_range_coeff(pred_explanation)

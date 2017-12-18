@@ -78,6 +78,9 @@ class TabularProblem(Problem):
 
         return explanation
 
+    def save_explanation(self, basename, example, y, explanation):
+        pass
+
     @staticmethod
     def to_name_range(feat):
         if ' > ' in feat:

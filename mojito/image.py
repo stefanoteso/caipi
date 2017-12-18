@@ -113,6 +113,9 @@ class _ImageProblem(Problem):
         mask = explanation.masks[self.labels.index(y)]
         print(self.asciiart(rgb2gray(image), mask=mask))
 
+    def save_explanation(self, basename, example, y, explanation):
+        pass
+
     def get_explanation_perf(self, true_explanation, pred_explanation):
         def clamp(mask):
             mask[mask == 1] = 0
