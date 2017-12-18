@@ -273,13 +273,16 @@ class TicTacToeProblem(TabularProblem):
         return make_pipeline(self.pipestep, learner)
 
     def save_explanation(self, basename, example, y, explanation):
+        board = self._boards[example]
 
-        # Convert features into relevance of board positions
-        relevance = np.zeros((3, 3))
+        # Convert features into a score by looking at the example
+        score = np.zeros((3, 3))
         for feat_name, coeff in explanation.as_list():
             if np.abs(coeff) >= 1e-2:
                 i, j, piece = feat_name.split()
-                relevance[int(i), int(j)] += 1
+                i, j = int(i), int(j)
+                if board[i][j] == piece:
+                    score[i, j] += coeff
 
         fig = plt.figure(figsize=[3, 3])
         ax = fig.add_subplot(111)
@@ -294,7 +297,6 @@ class TicTacToeProblem(TabularProblem):
         ax.set_xlim(-1, 4)
         ax.set_ylim(-1, 4)
 
-        board = self._boards[example]
         for i, j in product(range(3), range(3)):
 
             # Draw the piece
@@ -308,12 +310,13 @@ class TicTacToeProblem(TabularProblem):
                         markeredgewidth=2)
 
             # Draw the explanation highlight
-            if relevance[i][j] != 0:
+            if np.abs(score[i][j]) >= 1e-2:
+                color = (0, 1, 0, 0.3) if score[i,j] > 0 else (1, 0, 0, 0.3)
                 ax.plot(3 - (j + 0.5),
                         3 - (i + 0.5),
                         's',
                         markersize=35,
-                        markerfacecolor=(1, 0, 0, 0.3),
+                        markerfacecolor=color,
                         markeredgewidth=0)
 
         # Draw the prediction
