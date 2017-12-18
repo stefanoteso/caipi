@@ -158,12 +158,16 @@ class NewsgroupsProblem(Problem):
         return explanation
 
     def get_explanation_perf(self, true_explanation, pred_explanation):
+        true = to_name_range_coeff(true_explanation)
+        pred = to_name_range_coeff(pred_explanation)
+
         num_hits = 0
-        for true_word, true_coeff in true_explanation.as_list():
-            for pred_word, pred_coeff in pred_explanation.as_list():
+        for true_word, true_coeff in true:
+            for pred_word, pred_coeff in pred:
                 if true_word == pred_word and \
                     np.sign(true_coeff) == np.sign(pred_coeff):
                     num_hits += 1
-        pr = num_hits / len(pred_explanation.as_list())
-        rc = num_hits / len(true_explanation.as_list())
+
+        pr = (num_hits / len(pred)) if len(pred) else 0
+        rc = (num_hits / len(true)) if len(true) else 0
         return pr, rc, 2 * pr * rc / (pr + rc + 1e-6)
