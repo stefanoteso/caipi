@@ -99,10 +99,10 @@ class TabularProblem(Problem):
         return name, (lb, ub)
 
     @staticmethod
-    def intersect(range1, coeff1, range2, coeff2):
+    def intersect(range1, range2):
         lb = max(range1[0], range2[0])
         ub = min(range1[1], range2[1])
-        if lb < ub and np.sign(coeff1) == np.sign(coeff2):
+        if lb < ub:
             return 1
         return 0
 
@@ -121,8 +121,7 @@ class TabularProblem(Problem):
             for pred_name, pred_range, pred_coeff in pred:
                 if (true_name == pred_name and
                     np.sign(true_coeff) == np.sign(pred_coeff)):
-                    num_hits += self.intersect(true_range, true_coeff,
-                                               pred_range, pred_coeff)
+                    num_hits += self.intersect(true_range, pred_range)
 
         pr = (num_hits / len(pred)) if len(pred) else 0
         rc = (num_hits / len(true)) if len(true) else 0
