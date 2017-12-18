@@ -70,7 +70,7 @@ class Evaluator:
     def evaluate_explanation(self, example, y, explanation):
         """Computes the recall over the true features."""
         if explanation is None:
-            return -1, -1
+            return -1, -1, -1, -1
 
         # TODO the oracle is interpretable directly, we should not use LIME
         assert example is not None and y is not None
