@@ -31,6 +31,32 @@ class Evaluator:
         self.num_samples = num_samples
         self.num_features = num_features
 
+    def _get_true_features(self, x):
+        if self.oracle_kind == 'l1logreg':
+            true_features = set([i for i in self.oracle.coef_.nonzero()])
+        elif self.oracle_kind == 'tree':
+            import sklearn
+
+            nonzero_features = x.nonzero()[0]
+
+            current = 0
+            l_child = None
+            true_features = set()
+            tree = self.oracle.tree_
+            while l_child != sklearn.tree._tree.TREE_LEAF:
+                l_child = tree.children_left[current]
+                r_child = tree.children_right[current]
+                i = tree.feature[current]
+                if i in nonzero_features:
+                    true_features.add(i)
+                if x[i] < tree.threshold[current]:
+                    current = l_child
+                else:
+                    current = r_child
+        else:
+            raise NotImplementedError()
+        return true_features
+
     def evaluate_predictions(self, learner, examples):
         """Evaluates a learner's predictions.
 
