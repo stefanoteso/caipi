@@ -310,7 +310,7 @@ class TicTacToeProblem(TabularProblem):
                         markeredgewidth=2)
 
             # Draw the explanation highlight
-            if np.abs(score[i][j]) >= 1e-2:
+            if np.abs(score[i][j]) >= self.min_coeff:
                 color = (0, 1, 0, 0.3) if score[i,j] > 0 else (1, 0, 0, 0.3)
                 ax.plot(3 - (j + 0.5),
                         3 - (i + 0.5),
