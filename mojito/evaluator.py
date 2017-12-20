@@ -48,6 +48,10 @@ class Evaluator:
 
         # TODO the oracle is interpretable directly, we should not use LIME
         assert example is not None and y is not None
+
+        # XXX works around LIME usage of the default RNG
+        np.random.seed(0)
+
         oracle_explanation = \
             self.problem.explain(self.oracle,
                                  self.problem.examples,
