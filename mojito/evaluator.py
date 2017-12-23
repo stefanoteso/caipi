@@ -17,8 +17,10 @@ class Evaluator:
     def __init__(self, problem, oracle_kind='l1logreg',
                  num_samples=5000, num_features=10):
         self.problem = problem
-
         self.oracle_kind = oracle_kind
+        self.num_samples = num_samples
+        self.num_features = num_features
+
         if oracle_kind == 'l1logreg':
             oracle = LogisticRegression(penalty='l1', C=1, max_iter=10,
                                         random_state=0)
@@ -26,10 +28,7 @@ class Evaluator:
             oracle = DecisionTreeClassifier(random_state=0)
         else:
             raise ValueError('unsupported oracle_kind={}'.format(oracle_kind))
-
         self.oracle = problem.wrap_preproc(oracle).fit(problem.X, problem.y)
-        self.num_samples = num_samples
-        self.num_features = num_features
 
     def _get_true_features(self, x):
         if self.oracle_kind == 'l1logreg':
