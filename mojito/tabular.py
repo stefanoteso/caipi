@@ -10,14 +10,6 @@ from .problems import Problem
 from .utils import PipeStep
 
 
-_TERM = Terminal()
-
-def _poly(a, b):
-    return np.array([ai*bj for ai in a for bj in b])
-
-_POLY = PipeStep(lambda X: np.array([_poly(x, x) for x in X]))
-
-
 class TabularProblem(Problem):
     def __init__(self, y, X, X_lime, class_names, feature_names, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -26,6 +18,8 @@ class TabularProblem(Problem):
         self.examples = list(range(len(self.y)))
         self.class_names = class_names
         self.feature_names = feature_names
+
+        self.term = Terminal()
 
     def wrap_preproc(self, model):
         return model
@@ -56,10 +50,10 @@ class TabularProblem(Problem):
         return self.X_lime[example]
 
     def get_class_name(self, y):
-        return (_TERM.bold +
-                _TERM.color(y) +
+        return (self.term.bold +
+                self.term.color(y) +
                 self.class_names[y] +
-                _TERM.normal)
+                self.term.normal)
 
     def improve_explanation(self, example, y, explanation):
         class_name = self.get_class_name(y)
@@ -71,8 +65,8 @@ class TabularProblem(Problem):
                "because of these features:\n").format(**locals()))
 
         for constraint, coeff in explanation.as_list():
-            color = _TERM.red if coeff < 0 else _TERM.green
-            coeff = _TERM.bold + color + '{:+3.1f}'.format(coeff) + _TERM.normal
+            color = self.term.red if coeff < 0 else self.term.green
+            coeff = self.term.bold + color + '{:+3.1f}'.format(coeff) + self.term.normal
             print('  {:40s} : {}'.format(constraint, coeff))
 
         # TODO acquire improved explanation
@@ -130,58 +124,6 @@ class TabularProblem(Problem):
         pr = (num_hits / len(pred)) if len(pred) else 0
         rc = (num_hits / len(true)) if len(true) else 0
         return pr, rc, 2 * pr * rc / (pr + rc + 1e-6)
-
-
-class IrisProblem(TabularProblem):
-    """The iris dataset.
-
-    Features:
-    - non explainable: 2nd degree homogeneous polynomial of the attributes
-    - explainable: axis-aligned constraints on the attributes
-    """
-    def __init__(self, *args, **kwargs):
-        from sklearn.datasets import load_iris
-        from sklearn.preprocessing import MinMaxScaler
-
-        dataset = load_iris()
-        scaler = MinMaxScaler()
-        super().__init__(*args,
-                         y=dataset.target,
-                         X=scaler.fit_transform(_POLY.transform(dataset.data)),
-                         X_lime=scaler.fit_transform(dataset.data),
-                         class_names=dataset.target_names,
-                         feature_names=dataset.feature_names,
-                         **kwargs)
-
-    def get_pipeline(self, learner):
-        return make_pipeline(_POLY, learner)
-
-
-class CancerProblem(TabularProblem):
-    """The breast cancer dataset.
-
-    Features:
-    - non explainable: 2nd degree homogeneous polynomial of the attributes
-    - explainable: axis-aligned constraints on the attributes
-
-    Partially ripped from https://github.com/marcotcr/lime
-    """
-    def __init__(self, *args, **kwargs):
-        from sklearn.datasets import load_breast_cancer
-        from sklearn.preprocessing import MinMaxScaler
-
-        dataset = load_breast_cancer()
-        scaler = MinMaxScaler()
-        super().__init__(*args,
-                         y=dataset.target,
-                         X=scaler.fit_transform(_POLY.transform(dataset.data)),
-                         X_lime=scaler.fit_transform(dataset.data),
-                         class_names=dataset.target_names,
-                         feature_names=dataset.feature_names,
-                         **kwargs)
-
-    def get_pipeline(self, learner):
-        return make_pipeline(_POLY, learner)
 
 
 class TicTacToeProblem(TabularProblem):
