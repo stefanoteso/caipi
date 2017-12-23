@@ -25,7 +25,7 @@ print('saving')
 with open('fer2013.pickle', 'wb') as fp:
     pickle.dump({
             'data': X,
-            'target'i: y,
+            'target': y,
             'class_names': ('anger', 'disgust', 'fear', 'happiness', 'sadness', 'surprise', 'neutral'),
         }, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
