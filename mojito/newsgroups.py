@@ -16,6 +16,8 @@ from nltk.stem import SnowballStemmer
 from nltk.tokenize.texttiling import TextTilingTokenizer
 from nltk.tokenize import sent_tokenize
 from nltk.corpus import stopwords
+from nltk.util import ngrams
+from nltk.corpus import wordnet
 
 from . import Problem, load, dump
 
@@ -75,9 +77,14 @@ class NewsgroupsProblem(Problem):
     def preprocess(data,
                    tokenizer=None,
                    stopwords=set(stopwords.words('english')),
+                   filter_numbers=True,
+                   # stemmer='snowball',
                    stemmer=None,
                    filter_pos_tag=False,
                    lemmatizer='wordnet',
+                   # lemmatizer=None,
+                   wordnet_filtering=False,
+                   bigrams=True, trigrams=False,
                    min_df=1, max_df=0.3):
         """
         Small NLP pipeline:
@@ -139,21 +146,42 @@ class NewsgroupsProblem(Problem):
         doc_freq = Counter()
         processed_data = []
         for i, text in enumerate(data):
+
             print('preprocessing document {} of {}'.format(i, len(data)), end='\t\r')
+
             # tokens = word_tokenize(text.lower())
             if tokenizer is None:
                 tokenizer = RegexpTokenizer(r'\w+')
             tokens = tokenizer.tokenize(text.lower())
+
             if stopwords:
                 tokens = [t for t in tokens if t not in stopwords]
+
+            if filter_numbers:
+                tokens = [t for t in tokens if not t.isdigit()]
+
             if filter_pos_tag:
                 tokens = [t for t, tag in nltk.pos_tag(tokens) if tag in VALID_TAGS]
+
             if lemmatizer is not None:
                 lemmatizer = WordNetLemmatizer()
                 tokens = [lemmatizer.lemmatize(t) for t in tokens]
+
+                if wordnet_filtering:
+                    # for t in tokens:
+                    #     print('wn', wordnet.synsets(t))
+                    tokens = [t for t in tokens if wordnet.synsets(t)]
+
             elif stemmer is not None:
-                stemmer = get_stemmer(stemmer)
-                tokens = [stemmer.stem(t) for t in tokens]
+                _stemmer = get_stemmer(stemmer)
+                tokens = [_stemmer.stem(t) for t in tokens]
+
+            tokens_cp = [t for t in tokens]
+            if bigrams:
+                tokens += ['+'.join(t) for t in ngrams(tokens_cp, 2)]
+
+            if trigrams:
+                tokens += ['+'.join(t) for t in ngrams(tokens_cp, 3)]
 
             for t in tokens:
                 doc_freq[t] += 1
@@ -192,15 +220,20 @@ class NewsgroupsProblem(Problem):
         import re
 
         for word, coeff in explanation.as_list():
-            colored_word = _TERM.underline + \
-                _TERM.bold + \
-                (_TERM.red if coeff < 0 else _TERM.green) + \
-                word + \
-                _TERM.normal
-            matches = list(re.compile(r'\b' + word + r'\b').finditer(text))
+            # colored_word = _TERM.underline + \
+            #     _TERM.bold + \
+            #     (_TERM.red if coeff < 0 else _TERM.green) + \
+            #     word + \
+            #     _TERM.normal
+            matches = list(re.compile(r'\b' + word + r'\b').finditer(text.lower()))
             matches.reverse()
             for match in matches:
                 start = match.start()
+                colored_word = _TERM.underline + \
+                    _TERM.bold + \
+                    (_TERM.red if coeff < 0 else _TERM.green) + \
+                    text[start:start + len(word)] + \
+                    _TERM.normal
                 text = text[:start] + colored_word + text[start + len(word):]
         return text
 
