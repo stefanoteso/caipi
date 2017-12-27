@@ -12,7 +12,7 @@ import sys
 import logging
 import pickle
 import gzip
-
+import gc
 import xml.etree.ElementTree as ET
 
 import numpy
@@ -106,6 +106,9 @@ if __name__ == '__main__':
                         help='The final image size to rescale images into (e.g. (224, 224)).'
                         ' If not specified (None), no rescaling applied')
 
+    parser.add_argument('--output-labels', action='store_true',
+                        help='Whether to store class labels as a separate numpy array (classes.npy)')
+
     parser.add_argument('-v', '--verbose', type=int, nargs='?',
                         default=1,
                         help='Verbosity level')
@@ -155,7 +158,7 @@ if __name__ == '__main__':
         # scaling
         scaled_img = skimage.transform.resize(img, output_shape=args.res)
 
-        proc_imgs[i] = scaled_img
+        proc_imgs[i, :, :, :] = scaled_img
 
         #
         # saving as jpeg again
@@ -165,30 +168,22 @@ if __name__ == '__main__':
         skimage.io.imsave(scaled_img_path,
                           scaled_img,
                           quality=100)
-        print('Processed image {}/{}'.format(i + 1, len(img_paths)),
-              # end='\t\r'
-              )
+        print('Processed image {}/{}'.format(i + 1, len(img_paths)),               end='\t\r')
 
-    classes = numpy.array(classes)
-    classes_file = os.path.join(args.output_path, 'classes')
-    numpy.save(classes_file, classes)
-    logging.info('Saved class information to file {}'.format(classes_file))
+        gc.collect()
 
-    dataset_file = os.path.join(args.output_path, 'images-{}x{}'.format(args.res[0], args.res[1]))
-    numpy.save(dataset_file, proc_imgs)
-    logging.info('Saved image information to file {}'.format(dataset_file))
+    y = numpy.array(classes)
+    if args.output_labels:
+        classes_file = os.path.join(args.output_path, 'classes')
+        numpy.save(classes_file, y)
+        logging.info('Saved class information to file {}'.format(classes_file))
 
-    # for i, batch_start in enumerate(range(0, len(img_paths), args.batch_size)):
-    #     batch_end = batch_start + args.batch_size
-    #     batch = (batch_start, batch_end)
-    #     print("processing batch {} {}".format(i, batch))
+    dataset_outfile = os.path.join(args.output_path,
+                                   'images+classes-{}x{}x3.pklz'.format(args.res[0], args.res[1]))
+    # numpy.save(dataset_file, proc_imgs)
 
-    #     imgs_batch = load_images_as_arrays(img_paths, batch=batch)
-    #     logging.info('loaded images, printing shapes {}'.format(set([i.shape for i in imgs_batch])))
-
-    #     scaled_imgs_batch = scale_images(imgs_batch, scaled_res=args.res)
-    #     print(len(scaled_imgs_batch))
-    #     logging.info('scaled images, printing shapes {}'.format(set([i.shape
-    #                                                                  for i in scaled_imgs_batch])))
-
-    #     proc_imgs.extend(scaled_imgs_batch)
+    with gzip.open(dataset_outfile, 'wb') as f:
+        pickle.dump((proc_imgs, y), f, protocol=pickle.HIGHEST_PROTOCOL)
+        logging.info('Saved image information ({} images + {} labels) to file {}'.format(proc_imgs.shape,
+                                                                                         y.shape,
+                                                                                         dataset_outfile))

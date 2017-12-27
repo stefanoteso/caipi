@@ -141,7 +141,7 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                                          discretize=discretize)
         print('iter {t:3d} : #{i}  y changed? {y_diff}\n\ttrain-perfs={train_perfs} test-perfs={test_perfs}'
               .format(**locals()))
-        print('TRACE len {}'.format(len(test_perfs + (num_errors,))))
+
         trace.append(test_perfs + (num_errors,))
 
         # Evaluate explanation performance on the test set

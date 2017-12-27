@@ -1,8 +1,14 @@
 import pickle
+import gzip
 
 
 def load(path, **kwargs):
     with open(path, 'rb') as fp:
+        return pickle.load(fp, **kwargs)
+
+
+def load_gzip(path, **kwargs):
+    with gzip.open(path, 'rb') as fp:
         return pickle.load(fp, **kwargs)
 
 
@@ -21,7 +27,9 @@ def densify(x):
 class PipeStep:
     def __init__(self, func):
         self.func = func
+
     def fit(self, *args, **kwargs):
         return self
+
     def transform(self, X):
         return self.func(X)

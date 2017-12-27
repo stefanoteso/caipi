@@ -16,6 +16,8 @@ import gzip
 import numpy
 from keras import applications
 
+from utils import load_gzip
+
 CNN_MODELS = {'vgg16': applications.VGG16,
               'vgg19': applications.VGG19,
               'resnet50': applications.ResNet50,
@@ -28,12 +30,12 @@ if __name__ == '__main__':
     # creating the opt parser
     parser = argparse.ArgumentParser()
     parser.add_argument("data", type=str,
-                        help='Specify the path to the preprocessed image data as numpy array')
+                        help='Specify the path to the preprocessed image data as a compressed pickle file')
 
-    parser.add_argument('-l', '--labels', type=str,
-                        default=None,
-                        help='Path to the label information (Y).'
-                        ' If None, assumed to be a numpy archive "classes.npy in the same dir of data')
+    # parser.add_argument('-l', '--labels', type=str,
+    #                     default=None,
+    #                     help='Path to the label information (Y).'
+    #                     ' If None, assumed to be a numpy archive "classes.npy in the same dir of data')
 
     parser.add_argument('-m', '--model', type=str,
                         default='vgg16',
@@ -75,7 +77,8 @@ if __name__ == '__main__':
     #
     # loading (preprocessed) dataset
     # expected as a tensor of n-images X width X height X channels
-    data = numpy.load(args.data)
+    # data = numpy.load(args.data)
+    data, y = load_gzip(args.data)
     logging.info('Loaded data from {}\n\tshape: {}'.format(args.data,   data.shape))
 
     img_rows, img_cols, img_channels = data.shape[1:]
@@ -106,14 +109,13 @@ if __name__ == '__main__':
                                                                             img_rows,
                                                                             img_cols,
                                                                             img_channels))
-    #
-    # getting labels
-    label_path = args.labels
-    if label_path is None:
-        label_path = os.path.join(os.path.dirname(args.data), 'classes.npy')
-
-    y = numpy.load(label_path)
-    logging.info('Loaded classes from {}'.format(label_path))
+    # #
+    # # getting labels
+    # label_path = args.labels
+    # if label_path is None:
+    #     label_path = os.path.join(os.path.dirname(args.data), 'classes.npy')
+    # y = numpy.load(label_path)
+    # logging.info('Loaded classes from {}'.format(label_path))
 
     with gzip.open(data_outpath, 'wb') as f:
         pickle.dump((data_repr, y), f)

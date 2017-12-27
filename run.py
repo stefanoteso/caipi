@@ -30,6 +30,7 @@ PROBLEMS = {
     'fer13-binary': lambda *args, **kwargs:
     mojito.FER13Problem(*args, labels=(2, 5), **kwargs),
     'fer13-multiclass': mojito.FER13Problem,
+    'pascalvoc2012': mojito.PascalVOC2012Problem,
 }
 
 
