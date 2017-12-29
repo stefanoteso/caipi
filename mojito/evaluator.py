@@ -55,7 +55,7 @@ class DecisionTreeOracle(Oracle):
         tree = self.oracle.tree_
 
         current = 0
-        l_child = None
+        l_child = tree.children_left[current]
         features_in_true_branch = set()
         while l_child != sklearn.tree._tree.TREE_LEAF:
             l_child = tree.children_left[current]
