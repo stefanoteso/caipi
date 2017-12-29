@@ -149,7 +149,7 @@ class TicTacToeProblem(TabularProblem):
                 y.append({'positive': 1, 'negative': 0}[chars[-1]])
 
         Z = np.array(Z, dtype=np.float64)
-        X = [self.to_features(x_lime) for x_lime in Z]
+        X = np.array([self.to_features(x_lime) for x_lime in Z])
         y = np.array(y, dtype=np.int8)
 
         self.pipestep = PipeStep(lambda Z: np.array([
