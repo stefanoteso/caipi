@@ -33,10 +33,21 @@ LEARNERS = {
 }
 
 
+ORACLES = {
+    'dt': lambda problem, args: \
+        mojito.DecisionTreeOracle(problem,
+                                  num_features=args.num_features),
+    'l1logreg': lambda problem, args: \
+        mojito.SparseLogRegOracle(problem,
+                                  num_features=args.num_features),
+}
+
+
 def get_args_str(args):
     fields = [
         ('learner', args.learner),
         ('strategy', args.strategy),
+        ('oracle', args.oracle),
         ('num-folds', args.num_folds),
         ('perc-known', args.perc_known),
         ('max-iters', args.max_iters),
@@ -82,6 +93,8 @@ def main():
                         help='Active learner to use')
     parser.add_argument('strategy', type=str, default='random',
                         help='Query selection strategy to use')
+    parser.add_argument('oracle', choices=sorted(ORACLES.keys()),
+                       help='Kind of explanation oracle to use')
     parser.add_argument('-s', '--seed', type=int, default=0,
                         help='RNG seed')
 
@@ -105,8 +118,6 @@ def main():
                        help='Percentage of initial labelled examples')
     group.add_argument('-T', '--max-iters', type=int, default=100,
                        help='Maximum number of learning iterations')
-    group.add_argument('-O', '--oracle-kind', type=str, default='l1logreg',
-                       help='Kind of explanation oracle to use')
     args = parser.parse_args()
 
     np.seterr(all='raise')
@@ -118,13 +129,8 @@ def main():
     folds = StratifiedKFold(n_splits=args.num_folds, random_state=rng) \
                 .split(problem.y, problem.y)
 
-    print('Fitting the {} oracle...'.format(args.oracle_kind))
-    evaluator = mojito.Evaluator(problem,
-                                 oracle_kind=args.oracle_kind,
-                                 num_samples=args.num_samples,
-                                 num_features=args.num_features)
-    oracle_perfs = evaluator.evaluate(evaluator.oracle, problem.examples)
-    print('oracle perfs = {}'.format(oracle_perfs))
+    print('Fitting the {} oracle...'.format(args.oracle))
+    evaluator = ORACLES[args.oracle](problem, args)
 
     explanations_basename = get_explanations_basename(args)
 

@@ -110,7 +110,7 @@ class TabularProblem(Problem):
         """Compute explanation precision, recall, and F1."""
         def to_name_range_coeff(explanation):
             return [(*self.to_name_range(feat), coeff)
-                    for feat, coeff in explanation.as_list()
+                    for feat, coeff in explanation
                     if np.abs(coeff) > self.min_coeff]
 
         true = to_name_range_coeff(true_explanation)
