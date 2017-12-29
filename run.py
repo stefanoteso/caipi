@@ -40,6 +40,8 @@ ORACLES = {
     'l1logreg': lambda problem, args: \
         mojito.SparseLogRegOracle(problem,
                                   num_features=args.num_features),
+    'tictactoe': lambda problem, args: \
+        mojito.TicTacToeOracle(problem)
 }
 
 

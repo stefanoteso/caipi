@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.metrics import precision_recall_fscore_support as prfs
+from itertools import product
 
 
 class Oracle:
@@ -165,3 +166,56 @@ class LIMEOracle(Oracle):
         perf = self.problem.get_explanation_perf(oracle_explanation,
                                                  explanation)
         return perf + (explanation.score,)
+
+
+class TicTacToeOracle(Oracle):
+    def __init__(self, problem):
+        super().__init__(problem)
+
+    @staticmethod
+    def to_board(z):
+        board = np.zeros((3, 3), dtype=str)
+        for i, j in product(range(3), repeat=2):
+            n = 9*i + j*3
+            board[i,j] = {0: 'b', 1: 'x', 2: 'o'}[np.where(z[n:n+3])[0][0]]
+        return board
+
+    def evaluate_explanation(self, example, y, pred_explanation):
+        if pred_explanation is None:
+            return -1, -1, -1, -1
+
+        board = np.array(self.problem._boards[example], dtype=str)
+
+        WINNING_PIECES = (
+            ['x', 'x', 'x'],
+            ['x', 'x', ' '],
+            ['x', ' ', 'x'],
+            [' ', 'x', 'x'],
+        )
+
+        triplets = []
+        for i in range(3):
+            triplets.append([[i, 0], [i, 1], [i, 2]])
+        for j in range(3):
+            triplets.append([[0, j], [1, j], [2, j]])
+        triplets.append([[0, 0], [1, 1], [2, 2]])
+        triplets.append([[0, 2], [1, 1], [2, 0]])
+
+        # XXX messy, much easier to do with an intersection
+        relevant_features = set()
+        for triplet in triplets:
+            board_pieces = [board[i,j] for i, j in triplet]
+            for pieces in WINNING_PIECES:
+                if board_pieces == pieces:
+                    for i, j in triplet:
+                        s = board[i,j]
+                        relevant_features.add('{i} {j} {s}'.format(**locals()))
+
+        true_explanation = [
+                (feature_name, 1)
+                for feature_name in relevant_features
+            ]
+
+        perfs = self.problem.get_explanation_perf(true_explanation,
+                                                  pred_explanation.as_list())
+        return perfs + (pred_explanation.score,)
