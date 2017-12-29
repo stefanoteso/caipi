@@ -11,14 +11,16 @@ from .utils import PipeStep
 
 
 class TabularProblem(Problem):
-    def __init__(self, y, X, X_lime, class_names, feature_names, *args, **kwargs):
+    def __init__(self, y, X, Z, class_names, feature_names, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.y, self.X, self.X_lime = y, X, X_lime
-        self.examples = list(range(len(self.y)))
+        self.y = y
+        self.X = X
+        self.Z = Z
         self.class_names = class_names
         self.feature_names = feature_names
 
+        self.examples = list(range(len(self.y)))
         self.term = Terminal()
 
     def wrap_preproc(self, model):
@@ -26,7 +28,7 @@ class TabularProblem(Problem):
 
     def explain(self, learner, known_examples, example, y,
                 num_samples=5000, num_features=10):
-        explainer = LimeTabularExplainer(self.X_lime[known_examples],
+        explainer = LimeTabularExplainer(self.Z[known_examples],
                                          mode='classification',
                                          class_names=self.class_names,
                                          feature_names=self.feature_names,
@@ -36,7 +38,7 @@ class TabularProblem(Problem):
 
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         pipeline = self.get_pipeline(learner)
-        explanation = explainer.explain_instance(self.X_lime[example],
+        explanation = explainer.explain_instance(self.Z[example],
                                                  pipeline.predict_proba,
                                                  model_regressor=local_model,
                                                  num_samples=num_samples,
@@ -47,7 +49,7 @@ class TabularProblem(Problem):
         return self.y[example]
 
     def to_text(self, example):
-        return self.X_lime[example]
+        return self.Z[example]
 
     def get_class_name(self, y):
         return (self.term.bold +
@@ -136,23 +138,22 @@ class TicTacToeProblem(TabularProblem):
     """
     def __init__(self, *args, **kwargs):
         from os.path import join
-        from sklearn.preprocessing import MinMaxScaler
 
-        self._boards, X_lime, y = [], [], []
+        self._boards, Z, y = [], [], []
         with open(join('data', 'tic-tac-toe.data'), 'rt') as fp:
             for line in map(str.strip, fp.readlines()):
                 chars = line.split(',')
                 board = [[chars[3*i+j] for j in range(3)] for i in range(3)]
                 self._boards.append(board)
-                X_lime.append(self.to_lime_features(board))
+                Z.append(self.to_lime_features(board))
                 y.append({'positive': 1, 'negative': 0}[chars[-1]])
 
-        X_lime = np.array(X_lime, dtype=np.float64)
-        X = [self.to_features(x_lime) for x_lime in X_lime]
+        Z = np.array(Z, dtype=np.float64)
+        X = [self.to_features(x_lime) for x_lime in Z]
         y = np.array(y, dtype=np.int8)
 
-        self.pipestep = PipeStep(lambda X_lime: np.array([
-                self.to_features(x_lime) for x_lime in X_lime
+        self.pipestep = PipeStep(lambda Z: np.array([
+                self.to_features(x_lime) for x_lime in Z
             ]))
 
         feature_names = []
@@ -160,11 +161,7 @@ class TicTacToeProblem(TabularProblem):
             for state in ('b', 'x', 'o'):
                 feature_names.append('{i} {j} {state}'.format( **locals()))
 
-        scaler = MinMaxScaler()
-        super().__init__(*args,
-                         y=y,
-                         X=scaler.fit_transform(X),
-                         X_lime=scaler.fit_transform(X_lime),
+        super().__init__(*args, y=y, X=X, Z=Z,
                          class_names=('no-win', 'win'),
                          feature_names=feature_names,
                          **kwargs)
