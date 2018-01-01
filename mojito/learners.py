@@ -109,6 +109,54 @@ class ActiveSVM(ActiveLearner):
         return examples[np.argmin(prob_diffs)]
 
 
+class TicTacToeLearner(ActiveLearner):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        WEIGHTS_FOR_TRIPLET = [
+                0, 0, 0, # b b *
+                0, 0, 0, # b x *
+                0, 0, 0, # b o *
+                0, 0, 0, # x b *
+                0, 1, 0, # x x *
+                0, 0, 0, # x o *
+                0, 0, 0, # o b *
+                0, 0, 0, # o x *
+                0, 0, 0, # o o *
+            ]
+
+        w = []
+        for i in range(3):
+            w.extend(WEIGHTS_FOR_TRIPLET)
+        for j in range(3):
+            w.extend(WEIGHTS_FOR_TRIPLET)
+        w.extend(WEIGHTS_FOR_TRIPLET)
+        w.extend(WEIGHTS_FOR_TRIPLET)
+        self.w = np.array(w)
+
+        self.select_query = {
+            'random': self.select_at_random_,
+        }[self.strategy]
+
+    def fit(self, X, y):
+        pass
+
+    def predict(self, X):
+        return np.sign(np.dot(X, self.w)).astype(int)
+
+    def predict_proba(self, X):
+        y_hat = np.sign(np.dot(X, self.w))
+        p = []
+        for sign in y_hat:
+            p.append([1, 0] if sign < 0 else [0, 1])
+        p = np.array(p)
+        print('LIME sample balance =', y_hat.mean())
+        return p
+
+    def select_at_random_(self, problem, examples):
+        return self.rng.choice(list(examples))
+
+
 class ActiveGP(ActiveLearner):
     def __init__(self, *args, kernel=None, **kwargs):
         super().__init__(*args, **kwargs)
