@@ -148,8 +148,10 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                 print(' {}/{} : {}'.format(i, len(expl_test_examples), perf))
                 perfs.append(perf)
 
+                problem.improve_explanation(example, y, g)
+
                 basename = '{explanations_basename}_i={i}_t={t}'.format(**locals())
-                problem.save_explanation(basename, i, y, g)
+                problem.save_explanation(basename, example, y, g)
             explanation_perfs.append(perfs)
 
     return np.array(trace), np.array(explanation_perfs)
