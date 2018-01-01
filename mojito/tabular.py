@@ -149,11 +149,11 @@ class TicTacToeProblem(TabularProblem):
                 y.append({'positive': 1, 'negative': 0}[chars[-1]])
 
         Z = np.array(Z, dtype=np.float64)
-        X = np.array([self.to_features(x_lime) for x_lime in Z])
+        X = np.array([self.to_features(z) for z in Z])
         y = np.array(y, dtype=np.int8)
 
         self.pipestep = PipeStep(lambda Z: np.array([
-                self.to_features(x_lime) for x_lime in Z
+                self.to_features(z) for z in Z
             ]))
 
         feature_names = []
@@ -173,38 +173,38 @@ class TicTacToeProblem(TabularProblem):
     @staticmethod
     def to_lime_features(board):
         """Turns a board into interpretable features."""
-        x_lime = []
+        z = []
         for i, j in product(range(3), range(3)):
-            for piece in ('b', 'x', 'o'):
-                x_lime.append(board[i][j] == piece)
-        return np.array(x_lime, dtype=np.float64)
+            for piece in 'bxo':
+                z.append(board[i][j] == piece)
+        return np.array(z, dtype=np.float64)
 
     @staticmethod
-    def to_features(x_lime):
+    def to_features(z):
         """Turns interpretable features into uninterpretable features."""
-        def is_piece_at(x_lime, i, j, piece):
-            return x_lime[i*9 + j*3 + piece]
+        def is_piece_at(z, i, j, piece):
+            return z[i*9 + j*3 + piece]
 
         TRIPLETS = list(product(range(3), repeat=3))
 
         x = []
         for i in range(3):
-            x.extend([is_piece_at(x_lime, i, 0, triplet[0]) and
-                      is_piece_at(x_lime, i, 1, triplet[1]) and
-                      is_piece_at(x_lime, i, 2, triplet[2])
+            x.extend([is_piece_at(z, i, 0, triplet[0]) and
+                      is_piece_at(z, i, 1, triplet[1]) and
+                      is_piece_at(z, i, 2, triplet[2])
                       for triplet in TRIPLETS])
         for j in range(3):
-            x.extend([is_piece_at(x_lime, 0, j, triplet[0]) and
-                      is_piece_at(x_lime, 1, j, triplet[1]) and
-                      is_piece_at(x_lime, 2, j, triplet[2])
+            x.extend([is_piece_at(z, 0, j, triplet[0]) and
+                      is_piece_at(z, 1, j, triplet[1]) and
+                      is_piece_at(z, 2, j, triplet[2])
                       for triplet in TRIPLETS])
-        x.extend([is_piece_at(x_lime, 0, 0, triplet[0]) and
-                  is_piece_at(x_lime, 1, 1, triplet[1]) and
-                  is_piece_at(x_lime, 2, 2, triplet[2])
+        x.extend([is_piece_at(z, 0, 0, triplet[0]) and
+                  is_piece_at(z, 1, 1, triplet[1]) and
+                  is_piece_at(z, 2, 2, triplet[2])
                   for triplet in TRIPLETS])
-        x.extend([is_piece_at(x_lime, 0, 2, triplet[0]) and
-                  is_piece_at(x_lime, 1, 1, triplet[1]) and
-                  is_piece_at(x_lime, 2, 0, triplet[2])
+        x.extend([is_piece_at(z, 0, 2, triplet[0]) and
+                  is_piece_at(z, 1, 1, triplet[1]) and
+                  is_piece_at(z, 2, 0, triplet[2])
                   for triplet in TRIPLETS])
         return x
 
