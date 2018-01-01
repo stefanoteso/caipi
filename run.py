@@ -29,6 +29,7 @@ PROBLEMS = {
 
 LEARNERS = {
     'svm': mojito.ActiveSVM,
+    'ttt': mojito.TicTacToeLearner,
     'gp': mojito.ActiveGP,
 }
 
