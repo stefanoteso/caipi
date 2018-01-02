@@ -113,7 +113,7 @@ class TabularProblem(Problem):
         def to_name_range_coeff(explanation):
             return [(*self.to_name_range(feat), coeff)
                     for feat, coeff in explanation
-                    if np.abs(coeff) > self.min_coeff]
+                    if np.abs(coeff) >= self.min_coeff]
 
         true = to_name_range_coeff(true_explanation)
         pred = to_name_range_coeff(pred_explanation)
