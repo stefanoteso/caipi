@@ -156,10 +156,6 @@ class TicTacToeProblem(TabularProblem):
         X = np.array([self.to_features(z) for z in Z])
         y = np.array(y, dtype=np.int8)
 
-        self.pipestep = PipeStep(lambda Z: np.array([
-                self.to_features(z) for z in Z
-            ]))
-
         feature_names = []
         for i, j in product(range(3), range(3)):
             for state in ('b', 'x', 'o'):
@@ -215,7 +211,10 @@ class TicTacToeProblem(TabularProblem):
         return x
 
     def get_pipeline(self, learner):
-        return make_pipeline(self.pipestep, learner)
+        pipestep = PipeStep(lambda Z: np.array([
+                self.to_features(z) for z in Z
+            ]))
+        return make_pipeline(pipestep, learner)
 
     def save_explanation(self, basename, example, y, explanation):
         board = self._boards[example]
