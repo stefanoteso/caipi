@@ -267,8 +267,7 @@ class TicTacToeProblem(TabularProblem):
 
         # Draw the prediction
         ax.text(0.2, 0.825,
-                (self.class_names[y] + ' ' +
-                 '(' + self.class_names[self.y[example]] + ')'),
+                'pred={} | true={}'.format(self.class_names[y], self.class_names[self.y[example]]),
                 transform=ax.transAxes)
 
         # Save the PNG
