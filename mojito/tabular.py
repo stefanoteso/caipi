@@ -73,6 +73,8 @@ class TabularProblem(Problem):
             coeff = self.term.bold + color + '{:+3.1f}'.format(coeff) + self.term.normal
             print('  {:40s} : {}'.format(constraint, coeff))
 
+        print('The explanation fidelity is:', explanation.score)
+
         # TODO acquire improved explanation
 
         return explanation
