@@ -148,7 +148,7 @@ class TicTacToeLearner(ActiveLearner):
         y_hat = np.sign(np.dot(X, self.w))
         p = []
         for sign in y_hat:
-            p.append([1, 0] if sign < 0 else [0, 1])
+            p.append([1, 0] if sign < 0.5 else [0, 1])
         p = np.array(p)
         print('LIME sample balance =', y_hat.mean())
         return p
