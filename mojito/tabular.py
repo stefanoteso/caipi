@@ -11,7 +11,8 @@ from .utils import PipeStep
 
 
 class TabularProblem(Problem):
-    def __init__(self, y, X, Z, class_names, feature_names, *args, **kwargs):
+    def __init__(self, y, X, Z, class_names, feature_names,
+                 categorical_features, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.y = y
@@ -19,6 +20,7 @@ class TabularProblem(Problem):
         self.Z = Z
         self.class_names = class_names
         self.feature_names = feature_names
+        self.categorical_features = categorical_features
 
         self.examples = list(range(len(self.y)))
         self.term = Terminal()
@@ -32,7 +34,7 @@ class TabularProblem(Problem):
                                          mode='classification',
                                          class_names=self.class_names,
                                          feature_names=self.feature_names,
-                                         categorical_features=[],
+                                         categorical_features=self.categorical_features,
                                          discretize_continuous=False,
                                          verbose=False)
 
@@ -161,9 +163,11 @@ class TicTacToeProblem(TabularProblem):
             for state in ('b', 'x', 'o'):
                 feature_names.append('{i} {j} {state}'.format( **locals()))
 
+        all_features = list(range(Z.shape[1]))
         super().__init__(*args, y=y, X=X, Z=Z,
                          class_names=('no-win', 'win'),
                          feature_names=feature_names,
+                         categorical_features=all_features,
                          **kwargs)
 
     def to_text(self, example):
