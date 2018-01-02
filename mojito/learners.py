@@ -114,14 +114,14 @@ class TicTacToeLearner(ActiveLearner):
         super().__init__(*args, **kwargs)
 
         WEIGHTS_FOR_TRIPLET = [
-                0, 0, 0, # b b *
-                0, 0, 0, # b x *
-                0, 0, 0, # b o *
+                1, 0, 0, # x x *
                 0, 0, 0, # x b *
-                0, 1, 0, # x x *
                 0, 0, 0, # x o *
-                0, 0, 0, # o b *
+                0, 0, 0, # b x *
+                0, 0, 0, # b b *
+                0, 0, 0, # b o *
                 0, 0, 0, # o x *
+                0, 0, 0, # o b *
                 0, 0, 0, # o o *
             ]
 

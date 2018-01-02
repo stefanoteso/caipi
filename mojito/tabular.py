@@ -38,7 +38,7 @@ class TabularProblem(Problem):
                                          discretize_continuous=False,
                                          verbose=False)
 
-        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
+        local_model = Ridge(alpha=1000, fit_intercept=True, random_state=0)
         pipeline = self.get_pipeline(learner)
         explanation = explainer.explain_instance(self.Z[example],
                                                  pipeline.predict_proba,
@@ -158,8 +158,7 @@ class TicTacToeProblem(TabularProblem):
 
         feature_names = []
         for i, j in product(range(3), range(3)):
-            for state in ('b', 'x', 'o'):
-                feature_names.append('{i} {j} {state}'.format( **locals()))
+            feature_names.append('board[{i},{j}]'.format(**locals()))
 
         all_features = list(range(Z.shape[1]))
         super().__init__(*args, y=y, X=X, Z=Z,
@@ -175,19 +174,19 @@ class TicTacToeProblem(TabularProblem):
     @staticmethod
     def to_lime_features(board):
         """Turns a board into interpretable features."""
+        PIECE_TO_INT = {'x': -1, 'b': 0, 'o': 1}
         z = []
         for i, j in product(range(3), range(3)):
-            for piece in 'bxo':
-                z.append(board[i][j] == piece)
+            z.append(PIECE_TO_INT[board[i][j]])
         return np.array(z, dtype=np.float64)
 
     @staticmethod
     def to_features(z):
         """Turns interpretable features into uninterpretable features."""
         def is_piece_at(z, i, j, piece):
-            return z[i*9 + j*3 + piece]
+            return 1.0 if z[i*3 + j] == piece else 0.0
 
-        TRIPLETS = list(product(range(3), repeat=3))
+        TRIPLETS = list(product([-1, 0, 1], repeat=3))
 
         x = []
         for i in range(3):
@@ -208,6 +207,7 @@ class TicTacToeProblem(TabularProblem):
                   is_piece_at(z, 1, 1, triplet[1]) and
                   is_piece_at(z, 2, 0, triplet[2])
                   for triplet in TRIPLETS])
+        assert(sum(x) == (3 + 3 + 1 + 1))
         return x
 
     def get_pipeline(self, learner):
@@ -220,12 +220,14 @@ class TicTacToeProblem(TabularProblem):
         board = self._boards[example]
 
         # Convert features into a score by looking at the example
+        PIECE_TO_INT = {'x': -1, 'b': 0, 'o': 1}
         score = np.zeros((3, 3))
-        for feat_name, coeff in explanation.as_list():
-            i, j, piece = feat_name.split()
-            i, j = int(i), int(j)
-            sign = 1 if board[i][j] == piece else -1
-            score[i, j] += sign*coeff
+        for feature_name, coeff in explanation.as_list():
+            indices = feature_name.split('[')[-1].split(']')[0].split(',')
+            value = int(feature_name.split('=')[-1])
+            i, j = int(indices[0]), int(indices[1])
+            if PIECE_TO_INT[board[i][j]] == value:
+                score[i, j] += coeff
         print('feature scores =\n', score)
 
         fig = plt.figure(figsize=[3, 3])
