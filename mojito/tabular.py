@@ -38,7 +38,7 @@ class TabularProblem(Problem):
                                          discretize_continuous=False,
                                          verbose=False)
 
-        local_model = Ridge(alpha=1000, fit_intercept=True, random_state=0)
+        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         pipeline = self.get_pipeline(learner)
         explanation = explainer.explain_instance(self.Z[example],
                                                  pipeline.predict_proba,
