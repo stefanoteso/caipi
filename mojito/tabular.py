@@ -244,7 +244,7 @@ class TicTacToeProblem(TabularProblem):
 
             # Draw the piece
             if board[i][j] != 'b':
-                ax.plot(3 - (j + 0.5),
+                ax.plot(j + 0.5,
                         3 - (i + 0.5),
                         board[i][j],
                         markersize=25,
@@ -255,7 +255,7 @@ class TicTacToeProblem(TabularProblem):
             # Draw the explanation highlight
             if np.abs(score[i][j]) >= self.min_coeff:
                 color = (0, 1, 0, 0.3) if score[i,j] > 0 else (1, 0, 0, 0.3)
-                ax.plot(3 - (j + 0.5),
+                ax.plot(j + 0.5,
                         3 - (i + 0.5),
                         's',
                         markersize=35,
