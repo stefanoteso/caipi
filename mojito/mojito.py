@@ -145,7 +145,7 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
                                            num_samples=num_samples,
                                            num_features=num_features)
                 perf = evaluator.evaluate_explanation(example, y, g)
-                print(' {}/{} : {}'.format(i, len(expl_test_examples), perf))
+                print(' {} : {}/{} : perf = {}'.format(t, i, len(expl_test_examples), perf))
                 perfs.append(perf)
 
                 problem.improve_explanation(example, y, g)
