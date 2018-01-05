@@ -36,9 +36,11 @@ class TabularProblem(Problem):
                                          feature_names=self.feature_names,
                                          categorical_features=self.categorical_features,
                                          discretize_continuous=False,
+                                         feature_selection='forward_selection',
+                                         kernel_width=0.75,
                                          verbose=False)
 
-        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
+        local_model = Ridge(alpha=1000, fit_intercept=True, random_state=0)
         pipeline = self.get_pipeline(learner)
         explanation = explainer.explain_instance(self.Z[example],
                                                  pipeline.predict_proba,
