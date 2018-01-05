@@ -99,6 +99,10 @@ class TabularProblem(Problem):
             # 'feature <= value'
             name, ub = feat.split(' <= ')
             lb, ub = -np.inf, float(ub)
+        elif '=' in feat:
+            # 'feature=value'
+            name, value = feat.split('=')
+            lb, ub = float(value), float(value)
         else:
             name = feat
             lb, ub = -np.inf, np.inf
@@ -108,7 +112,7 @@ class TabularProblem(Problem):
     def intersect(range1, range2):
         lb = max(range1[0], range2[0])
         ub = min(range1[1], range2[1])
-        if lb < ub:
+        if lb <= ub:
             return 1
         return 0
 
