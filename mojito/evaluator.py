@@ -43,37 +43,8 @@ class DecisionTreeOracle(Oracle):
         perfs = prfs(problem.y, self.oracle.predict(problem.Z),
                      average='weighted')[:3]
         print('oracle performance =', perfs)
-        print('oracle rules =\n' + \
-              '\n'.join(self.get_rules(self.oracle.tree_)))
 
         self.num_features = num_features
-
-    def get_rules(self, tree, booleanize=True):
-        import sklearn
-
-        def recurse(node, rules, prefix):
-            l_child = tree.children_left[node]
-            r_child = tree.children_right[node]
-            if l_child == sklearn.tree._tree.TREE_LEAF:
-                value = tree.value[node]
-                rules.append(' ^ '.join(prefix) + ' -> ' + str(value))
-            else:
-                feature = tree.feature[node]
-                feature_name = self.problem.feature_names[feature]
-                threshold = tree.threshold[node]
-                if not booleanize:
-                    l_cond = '({} <= {})'.format(feature_name, threshold)
-                    r_cond = '({} > {})'.format(feature_name, threshold)
-                else:
-                    assert threshold == 0.5
-                    l_cond = '(not {})'.format(feature_name, threshold)
-                    r_cond = '({})'.format(feature_name, threshold)
-                recurse(l_child, rules, prefix + [l_cond])
-                recurse(r_child, rules, prefix + [r_cond])
-
-        rules = []
-        recurse(0, rules, [])
-        return rules
 
     def evaluate_explanation(self, example, y, pred_explanation):
         if pred_explanation is None:
