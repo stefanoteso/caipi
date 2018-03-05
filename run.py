@@ -58,6 +58,7 @@ def get_args_str(args):
         ('num-samples', args.num_samples),
         ('num-features', args.num_features),
         ('eval-explanations-every', args.eval_explanations_every),
+        ('eval-prop', args.eval_prop),
         ('improve-explanations', args.improve_explanations),
         ('seed', args.seed),
     ]
@@ -113,6 +114,9 @@ def main():
     group.add_argument('-e', '--eval-explanations-every', type=int, default=10,
                        help='Interval for evaluating explanation performance'
                             'on the test set')
+    group.add_argument('--eval-prop', type=float, default=0.1,
+                       help='Proportion of the test set to evaluate the'
+                            'explanations on')
 
     group = parser.add_argument_group('Evaluation')
     group.add_argument('-k', '--num-folds', type=int, default=10,
@@ -154,6 +158,7 @@ def main():
                           num_samples=args.num_samples,
                           num_features=args.num_features,
                           eval_explanations_every=args.eval_explanations_every,
+                          eval_prop=args.eval_prop,
                           explanations_basename=explanations_basename + '_fold={}'.format(k),
                           rng=rng)
         traces.append(trace)

@@ -34,7 +34,7 @@ def predict_and_explain(problem, learner, known_examples, example,
 def mojito(problem, evaluator, learner, train_examples, known_examples,
            max_iters=100, start_explaining_at=-1, improve_explanations=False,
            num_samples=5000, num_features=10, eval_explanations_every=10,
-           explanations_basename=None, rng=None):
+           eval_prop=0.1, explanations_basename=None, rng=None):
     """An implementation of the Mojito algorithm.
 
     Parameters
@@ -62,15 +62,27 @@ def mojito(problem, evaluator, learner, train_examples, known_examples,
         Number of explanatory features used by LIME
     eval_explanations_every : int, defaults to 10
         Interval (in iterations) between explanation evaluations.
+    eval_prop : float, defaults to 0.1
+        Proportion of the test set to evaluate the explanations on.
     explanations_basename : str, defaults to None
         Base filename of the test-set explanations.
+
+    Returns
+    -------
+    trace : ndarray
+        Execution trace.
+    explanation_perfs : ndarray
+        Performance on (a subset of) the test set.
     """
     rng = check_random_state(rng)
 
     train_examples = list(train_examples)
     known_examples = list(known_examples)
     test_examples = list(set(problem.examples) - set(train_examples))
-    expl_test_examples = rng.permutation(test_examples)[:20]
+
+    num_eval = int(round(len(test_examples) * eval_prop))
+    assert 0 < num_eval <= len(test_examples)
+    expl_test_examples = rng.permutation(test_examples)[:num_eval]
 
     # Wrap the learner in the preprocessing pipeline, if any
     unwrapped_learner = learner
