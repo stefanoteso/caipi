@@ -10,7 +10,7 @@ from sklearn.model_selection import StratifiedKFold
 
 
 PROBLEMS = {
-    'tictactoe': mojito.TicTacToeProblem,
+    'ttt': mojito.TicTacToeProblem,
     'newsgroups': mojito.NewsgroupsProblem,
     'newsgroups-sport': lambda *args, **kwargs: \
         mojito.NewsgroupsProblem(*args,
@@ -41,7 +41,7 @@ ORACLES = {
     'l1logreg': lambda problem, args: \
         mojito.SparseLogRegOracle(problem,
                                   num_features=args.num_features),
-    'tictactoe': lambda problem, args: \
+    'ttt': lambda problem, args: \
         mojito.TicTacToeOracle(problem)
 }
 
