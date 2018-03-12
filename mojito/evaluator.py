@@ -143,6 +143,22 @@ class TicTacToeOracle(Oracle):
     def __init__(self, problem):
         super().__init__(problem)
 
+        self.winning_pieces = (
+            ['x', 'x', 'x'],
+            ['x', 'x', ' '],
+            ['x', ' ', 'x'],
+            [' ', 'x', 'x'],
+        )
+
+        triplets = []
+        for i in range(3):
+            triplets.append([[i, 0], [i, 1], [i, 2]])
+        for j in range(3):
+            triplets.append([[0, j], [1, j], [2, j]])
+        triplets.append([[0, 0], [1, 1], [2, 2]])
+        triplets.append([[0, 2], [1, 1], [2, 0]])
+        self.triplets = triplets
+
     @staticmethod
     def to_board(z):
         board = np.zeros((3, 3), dtype=str)
@@ -157,26 +173,11 @@ class TicTacToeOracle(Oracle):
 
         board = np.array(self.problem._boards[example], dtype=str)
 
-        WINNING_PIECES = (
-            ['x', 'x', 'x'],
-            ['x', 'x', ' '],
-            ['x', ' ', 'x'],
-            [' ', 'x', 'x'],
-        )
-
-        triplets = []
-        for i in range(3):
-            triplets.append([[i, 0], [i, 1], [i, 2]])
-        for j in range(3):
-            triplets.append([[0, j], [1, j], [2, j]])
-        triplets.append([[0, 0], [1, 1], [2, 2]])
-        triplets.append([[0, 2], [1, 1], [2, 0]])
-
         # XXX messy, much easier to do with an intersection
         relevant_features = set()
-        for triplet in triplets:
+        for triplet in self.triplets:
             board_pieces = [board[i,j] for i, j in triplet]
-            for pieces in WINNING_PIECES:
+            for pieces in self.winning_pieces:
                 if board_pieces == pieces:
                     for i, j in triplet:
                         s = board[i,j]
