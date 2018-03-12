@@ -93,8 +93,8 @@ def main():
     parser = argparse.ArgumentParser(formatter_class=fmt_class)
     parser.add_argument('problem', choices=sorted(PROBLEMS.keys()),
                         help='name of the problem')
-    parser.add_argument('learner', type=str, default='svm',
-                        help='Active learner to use')
+    parser.add_argument('learner', choices=sorted(LEARNERS.keys()),
+                        default='svm', help='Active learner to use')
     parser.add_argument('strategy', type=str, default='random',
                         help='Query selection strategy to use')
     parser.add_argument('oracle', choices=sorted(ORACLES.keys()),
