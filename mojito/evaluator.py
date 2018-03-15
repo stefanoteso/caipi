@@ -114,31 +114,6 @@ class SparseLogRegOracle(Oracle):
         return perfs + (pred_explanation.score,)
 
 
-class LIMEOracle(Oracle):
-    """NOTE: this evaluator requires a wrapped oracle."""
-
-    def __init__(self, problem):
-        super().__init__(problem)
-
-    def evaluate_explanation(self, example, y, explanation):
-        raise NotImplementedError()
-
-        # XXX works around LIME usage of the default RNG
-        np.random.seed(0)
-
-        explanation = \
-            self.problem.explain(self.oracle,
-                                 self.problem.examples,
-                                 example, y,
-                                 num_samples=self.num_samples,
-                                 num_features=self.num_features)
-
-
-        perf = self.problem.get_explanation_perf(oracle_explanation,
-                                                 explanation)
-        return perf + (explanation.score,)
-
-
 class TicTacToeOracle(Oracle):
     def __init__(self, problem):
         super().__init__(problem)
