@@ -355,7 +355,7 @@ class SVMLearner:
         examples = sorted(examples)
         margins = np.abs(self.decision_function(problem.X[examples]))
         # NOTE margins has shape (n_examples,) or (n_examples, n_classes)
-        if margsin.ndim == 2:
+        if margins.ndim == 2:
             margins = margins.min(axis=1)
         return examples[np.argmin(margins)]
 
@@ -370,14 +370,14 @@ class SVMLearner:
         return examples[np.argmin(diffs)]
 
     def fit(self, X, y):
-        #self._f_model.fit(X, y)
+        self._f_model.fit(X, y)
         self._p_model.fit(X, y)
 
     def decision_function(self, X):
-        return self._p_model.decision_function(X)
+        return self._f_model.decision_function(X)
 
     def predict(self, X):
-        return self._p_model.predict(X)
+        return self._f_model.predict(X)
 
     def predict_proba(self, X):
         return self._p_model.predict_proba(X)
@@ -480,7 +480,7 @@ def caipi(problem,
                             test_examples,
                             eval_examples if do_eval else None,
                             t=t, basename=basename)
-        n_corrections = len(y_corr) if y_corr else 0
+        n_corrections = len(y_corr) if y_corr is not None else 0
         perf += (n_corrections,)
 
         print('iter {t:3d} : example #{i},  test perfs = {perf}'.format(**locals()))
