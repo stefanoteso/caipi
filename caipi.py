@@ -61,6 +61,16 @@ class TTTProblem:
         [[0, 2], [1, 1], [2, 0]],
     ]
 
+    _SALIENT_CONFIGS = [
+        (['x', 'x', 'x'], 1),
+        (['x', 'x', 'b'], 0),
+        (['x', 'b', 'x'], 0),
+        (['b', 'x', 'x'], 0),
+        (['x', 'x', 'o'], 0),
+        (['x', 'o', 'x'], 0),
+        (['o', 'x', 'x'], 0),
+    ]
+
     def __init__(self, n_samples, n_features, min_coeff=1e-2, rng=None):
         self.n_samples = n_samples
         self.n_features = n_features
@@ -133,20 +143,18 @@ class TTTProblem:
         assert(sum(x) == (3 + 3 + 1 + 1))
         return np.array(x, dtype=np.float64)
 
+    def _get_true_y(self, board):
+        for triplet in self._TRIPLETS:
+            board_pieces = [board[i, j] for i, j in triplet]
+            if board_pieces == self._SALIENT_CONFIGS[0][0]:
+                return 1
+        return 0
+
     def _to_true_expl(self, board):
-        SALIENT_CONFIGS = [
-            (['x', 'x', 'x'], 1),
-            (['x', 'x', 'b'], 0),
-            (['x', 'b', 'x'], 0),
-            (['b', 'x', 'x'], 0),
-            (['x', 'x', 'o'], 0),
-            (['x', 'o', 'x'], 0),
-            (['o', 'x', 'x'], 0),
-        ]
         feats_weights = []
         for triplet in self._TRIPLETS:
             board_pieces = [board[i, j] for i, j in triplet]
-            for target_pieces, sign in SALIENT_CONFIGS:
+            for target_pieces, sign in self._SALIENT_CONFIGS:
                 if board_pieces == target_pieces:
                     for i, j in triplet:
                         piece = board[i, j]
@@ -197,7 +205,9 @@ class TTTProblem:
             for alt_piece in set(['o', 'b', 'x']) - set([str(board[i, j])]):
                 alt_board = np.array(board)
                 alt_board[i,j] = alt_piece
-                alt_boards.append(alt_board)
+                # Do not add board with a wrong label
+                if true_y == self._get_true_y(alt_board):
+                    alt_boards.append(alt_board)
         if not len(alt_boards):
             return None, None
 
@@ -448,10 +458,10 @@ def caipi(problem,
         i = learner.select_query(problem,
                                  set(train_examples) - set(known_examples))
         assert i in train_examples and i not in known_examples
+        x = _densify(problem.X[i])
 
         explain = 0 <= start_expl_at <= t
 
-        x = _densify(problem.X[i])
         # print('predicting...')
         pred_y = learner.predict(x)[0]
 
