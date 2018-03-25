@@ -438,12 +438,6 @@ def caipi(problem,
           len(train_examples), len(known_examples),
           len(test_examples), len(eval_examples)))
 
-    print('Computing full-train performance...')
-    learner.fit(problem.X[train_examples],
-                problem.y[train_examples])
-    perf = problem.eval(learner, train_examples, test_examples, eval_examples)
-    print('perf on full training set =', perf)
-
     learner.fit(problem.X[known_examples],
                 problem.y[known_examples])
 
@@ -571,6 +565,8 @@ def main():
     group.add_argument('-e', '--eval-iters', type=int, default=10,
                        help='Interval for evaluating performance on the'
                        'evaluation set')
+    group.add_argument('--eval-full', action='store_true',
+                       help='DEBUG: eval perfs on training set beforehand')
 
     group = parser.add_argument_group('Interaction')
     group.add_argument('-E', '--start-expl-at', type=int, default=-1,
@@ -611,6 +607,33 @@ def main():
                                   args.prop_eval, rng)
 
         learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
+
+        if args.eval_full:
+
+            print('Computing full-train performance...')
+            learner.fit(problem.X[train_examples],
+                        problem.y[train_examples])
+            perf = problem.eval(learner, train_examples,
+                                test_examples, eval_examples)
+            print('perf on full training set =', perf)
+
+            print('Computing augmented-train performance...')
+            X_corr, y_corr = None, None
+            for i in train_examples:
+                x = _densify(problem.X[i])
+                pred_y = learner.predict(x)[0]
+                pred_z = problem.explain(learner, train_examples, i, pred_y)
+                X_extra, y_extra = \
+                    problem.query_improved_expl(i, pred_y, pred_z)
+                X_corr = vstack([X_corr, X_extra])
+                y_corr = hstack([y_corr, y_extra])
+            learner.fit(vstack([X_corr, problem.X[train_examples]]),
+                        hstack([y_corr, problem.y[train_examples]]))
+            perf = problem.eval(learner, train_examples,
+                                test_examples, eval_examples)
+            print('perf on augmented training set =', perf)
+
+            quit()
 
         perf = caipi(problem,
                      learner,
