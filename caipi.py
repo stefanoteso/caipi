@@ -407,14 +407,14 @@ class GPLearner:
         self.select_query = {
             'random': self._select_at_random,
             'most-variance': self._select_most_variance,
-        }
+        }[strategy]
 
     def _select_at_random(self, problem, examples):
         return self.rng.choice(sorted(examples))
 
     def _select_most_variance(self, problem, examples):
         examples = sorted(examples)
-        _, std = self._r_model.predict(problem.X[examples])
+        _, std = self._r_model.predict(problem.X[examples], return_std=True)
         return examples[np.argmax(std)]
 
     def fit(self, X, y):
@@ -484,8 +484,8 @@ def caipi(problem,
             break
 
         # print('selecting a query instance...')
-        i = learner.select_query(problem,
-                                 set(train_examples) - set(known_examples))
+        unknown_examples = set(train_examples) - set(known_examples)
+        i = learner.select_query(problem, unknown_examples)
         assert i in train_examples and i not in known_examples
         x = _densify(problem.X[i])
 
