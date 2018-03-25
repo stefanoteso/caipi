@@ -393,6 +393,41 @@ class SVMLearner:
         return self._p_model.predict_proba(X)
 
 
+class GPLearner:
+    def __init__(self, problem, strategy, rng=None):
+        self.problem = problem
+        self.rng = check_random_state(rng)
+
+        from sklearn.gaussian_process import GaussianProcessRegressor, \
+                                             GaussianProcessClassifier
+
+        self._r_model = GaussianProcessRegressor(random_state=0)
+        self._c_model = GaussianProcessClassifier(random_state=0)
+
+        self.select_query = {
+            'random': self._select_at_random,
+            'most-variance': self._select_most_variance,
+        }
+
+    def _select_at_random(self, problem, examples):
+        return self.rng.choice(sorted(examples))
+
+    def _select_most_variance(self, problem, examples):
+        examples = sorted(examples)
+        _, std = self._r_model.predict(problem.X[examples])
+        return examples[np.argmax(std)]
+
+    def fit(self, X, y):
+        self._r_model.fit(X, y)
+        self._c_model.fit(X, y)
+
+    def predict(self, X):
+        return self._c_model.predict(X)
+
+    def predict_proba(self, X):
+        return self._c_model.predict_proba(X)
+
+
 def _densify(x):
     try:
         x = x.toarray()
@@ -534,6 +569,7 @@ PROBLEMS = {
 
 LEARNERS = {
     'svm': SVMLearner,
+    'gp': GPLearner,
 }
 
 
