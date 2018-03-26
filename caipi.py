@@ -358,6 +358,19 @@ class SVMLearner:
             'least-margin': self._select_least_margin,
         }[strategy]
 
+    def select_model(self, X, y):
+        from sklearn.model_selection import GridSearchCV, cross_val_score
+
+        Cs = np.logspace(-3, 3, 7)
+        grid = GridSearchCV(estimator=self._f_model,
+                            param_grid=dict(C=Cs),
+                            scoring='f1_weighted',
+                            n_jobs=-1)
+        grid.fit(X, y)
+        best_C = grid.best_estimator_.C
+        print('SVM: setting C to', best_C)
+        self._f_model.set_params(C=best_C)
+
     def _select_at_random(self, problem, examples):
         return self.rng.choice(sorted(examples))
 
@@ -521,6 +534,11 @@ def caipi(problem,
                             t=t, basename=basename)
         n_corrections = len(y_corr) if y_corr is not None else 0
         perf += (n_corrections,)
+
+        # print('selecting model...')
+        if t >=5 and t % 5 == 0:
+            learner.select_model(vstack([X_corr, problem.X[known_examples]]),
+                                 hstack([y_corr, problem.y[known_examples]]))
 
         print('iter {t:3d} : example #{i},  test perfs = {perf}'.format(**locals()))
         perfs.append(perf)
