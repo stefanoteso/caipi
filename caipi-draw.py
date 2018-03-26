@@ -30,6 +30,8 @@ def get_style(args):
         ('svm', 'random'): Tango.RED,
         ('svm', 'least-confident'): Tango.ORANGE,
         ('svm', 'least-margin'): Tango.YELLOW,
+        ('gp', 'random'): Tango.BLUE,
+        ('gp', 'most-variance'): Tango.VIOLET,
     }[args.learner, args.strategy]
 
     style, marker = {
