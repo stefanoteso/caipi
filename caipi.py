@@ -5,7 +5,7 @@ import pickle
 from sklearn.utils import check_random_state
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 import matplotlib.pyplot as plt
 from itertools import product
 from textwrap import dedent
@@ -630,6 +630,8 @@ def main():
                        help='Number of LIME features to present the user')
     args = parser.parse_args()
 
+    basename = get_basename(args)
+
     np.seterr(all='raise')
     np.set_printoptions(precision=3)
     rng = np.random.RandomState(args.seed)
@@ -637,66 +639,77 @@ def main():
     print('Creating problem...')
     problem = PROBLEMS[args.problem](args.n_samples, args.n_features, rng=rng)
 
-    basename = get_basename(args)
+    if args.eval_full:
 
-    folds = StratifiedKFold(n_splits=args.n_folds, random_state=rng) \
-                .split(problem.y, problem.y)
-
-    perfs = []
-    for k, (train_examples, test_examples) in enumerate(folds):
-        print('Running fold {}/{}'.format(k + 1, args.n_folds))
-
-        train_examples = list(train_examples)
-        known_examples = subsample(problem, train_examples,
-                                   args.prop_known, rng)
-        test_examples = list(test_examples)
+        folds = StratifiedShuffleSplit(n_splits=args.n_folds, random_state=rng) \
+                    .split(problem.y, problem.y)
+        train_examples, test_examples = list(folds)[0]
         eval_examples = subsample(problem, test_examples,
                                   args.prop_eval, rng)
 
         learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
 
-        if args.eval_full:
+        print('Computing full-train performance...')
+        learner.fit(problem.X[train_examples],
+                    problem.y[train_examples])
+        perf = problem.eval(learner, train_examples,
+                            test_examples, eval_examples,
+                            t='train', basename=basename)
+        print('perf on full training set =', perf)
 
-            print('Computing full-train performance...')
-            learner.fit(problem.X[train_examples],
-                        problem.y[train_examples])
-            perf = problem.eval(learner, train_examples,
-                                test_examples, eval_examples)
-            print('perf on full training set =', perf)
+        print('Computing augmented training set...')
+        X_corr, y_corr = None, None
+        for i in train_examples:
+            x = _densify(problem.X[i])
+            pred_y = learner.predict(x)[0]
+            pred_z = problem.explain(learner, train_examples, i, pred_y)
+            X_extra, y_extra = \
+                problem.query_improved_expl(i, pred_y, pred_z)
+            X_corr = vstack([X_corr, X_extra])
+            y_corr = hstack([y_corr, y_extra])
+        print('# corrections =', len(X_corr))
 
-            print('Computing augmented-train performance...')
-            X_corr, y_corr = None, None
-            for i in train_examples:
-                x = _densify(problem.X[i])
-                pred_y = learner.predict(x)[0]
-                pred_z = problem.explain(learner, train_examples, i, pred_y)
-                X_extra, y_extra = \
-                    problem.query_improved_expl(i, pred_y, pred_z)
-                X_corr = vstack([X_corr, X_extra])
-                y_corr = hstack([y_corr, y_extra])
-            learner.fit(vstack([X_corr, problem.X[train_examples]]),
-                        hstack([y_corr, problem.y[train_examples]]))
-            perf = problem.eval(learner, train_examples,
-                                test_examples, eval_examples)
-            print('perf on augmented training set =', perf)
+        print('Computing augmented-train performance...')
+        learner.fit(vstack([X_corr, problem.X[train_examples]]),
+                    hstack([y_corr, problem.y[train_examples]]))
+        perf = problem.eval(learner, train_examples,
+                            test_examples, eval_examples,
+                            t='augmt', basename=basename)
+        print('perf on augmented training set =', perf)
 
-            quit()
+    else:
 
-        perf = caipi(problem,
-                     learner,
-                     train_examples,
-                     known_examples,
-                     test_examples,
-                     eval_examples,
-                     max_iters=args.max_iters,
-                     start_expl_at=args.start_expl_at,
-                     eval_iters=args.eval_iters,
-                     improve_expl=args.improve_expl,
-                     basename=basename,
-                     rng=rng)
-        perfs.append(perf)
+        folds = StratifiedKFold(n_splits=args.n_folds, random_state=rng) \
+                    .split(problem.y, problem.y)
 
-    dump(get_basename(args) + '.pickle', {'args': args, 'perfs': perfs})
+        perfs = []
+        for k, (train_examples, test_examples) in enumerate(folds):
+            print('Running fold {}/{}'.format(k + 1, args.n_folds))
+
+            train_examples = list(train_examples)
+            known_examples = subsample(problem, train_examples,
+                                       args.prop_known, rng)
+            test_examples = list(test_examples)
+            eval_examples = subsample(problem, test_examples,
+                                      args.prop_eval, rng)
+
+            learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
+
+            perf = caipi(problem,
+                         learner,
+                         train_examples,
+                         known_examples,
+                         test_examples,
+                         eval_examples,
+                         max_iters=args.max_iters,
+                         start_expl_at=args.start_expl_at,
+                         eval_iters=args.eval_iters,
+                         improve_expl=args.improve_expl,
+                         basename=basename,
+                         rng=rng)
+            perfs.append(perf)
+
+        dump(get_basename(args) + '.pickle', {'args': args, 'perfs': perfs})
 
 
 if __name__ == '__main__':
