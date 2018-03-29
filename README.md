@@ -1,28 +1,36 @@
-Mojito
-======
+Caipi
+=====
 
-An implementation of Coactive Learning with LIME on top.
+Caipirinha turns LIME into trust!  An implementation of the Caipi framework
+for interactive explanatory learning.
+
 
 Required Packages
 -----------------
+
+Caipi is written in Python 3.5.  Make sure that you have the following
+packages:
 
 - [numpy](https://www.numpy.org)
 - [sklearn](https://scikit-learn.org)
 - [lime](https://github.com/marcotcr/lime)
 - [blessings](https://pypi.python.org/pypi/blessings)
-- [skimage](http://scikit-image.org/) for the image classification task
 - [nltk](http://www.nltk.org/) for the 20 newsgroups task
+- [skimage](http://scikit-image.org/) for the image classification task
+
 
 Usage
 -----
-Run it like this:
+
+You can run Caipi as follows:
 ```bash
-    python3 run.py $problem $learner $example-selection-strategy
+    python3 caipi.py $problem $learner $example-selection-strategy
 ```
 For the complete list of options, type:
 ```bash
-    python3 run.py --help
+    python3 caipi.py --help
 ```
+
 
 Datasets
 --------
