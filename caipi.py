@@ -61,16 +61,6 @@ class TTTProblem:
         [[0, 2], [1, 1], [2, 0]],
     ]
 
-    _SALIENT_CONFIGS = [
-        (['x', 'x', 'x'], 1),
-        (['x', 'x', 'b'], 0),
-        (['x', 'b', 'x'], 0),
-        (['b', 'x', 'x'], 0),
-        (['x', 'x', 'o'], 0),
-        (['x', 'o', 'x'], 0),
-        (['o', 'x', 'x'], 0),
-    ]
-
     def __init__(self, n_samples, n_features, min_coeff=1e-2, rng=None):
         self.n_samples = n_samples
         self.n_features = n_features
@@ -98,14 +88,43 @@ class TTTProblem:
             self.z_names.append('board[{i},{j}]'.format(**locals()))
 
     def _board_to_z(self, board):
-        z = []
-        for i, j in product(range(3), repeat=2):
-            z.append(self._PIECE_TO_INT[board[i, j]])
-        return np.array(z, dtype=np.float64)
+        return np.array([self._PIECE_TO_INT[board[i, j]]
+                         for i, j in product(range(3), repeat=2)],
+                        dtype=np.float64)
 
-    def _board_z_to_scores(self, board, z):
+    def _board_to_y(self, board):
+        win = any([board[i, j] == ['x', 'x', 'x'] for i, j in self._TRIPLETS])
+        return 1 if win else 0
+
+    def _board_to_expl(self, board):
+        SALIENT_CONFIGS = [
+            # Win configurations
+            (['x', 'x', 'x'], 1),
+            # Almost-win configurations
+            (['x', 'x', 'b'], -1),
+            (['x', 'b', 'x'], -1),
+            (['b', 'x', 'x'], -1),
+            (['x', 'x', 'o'], -1),
+            (['x', 'o', 'x'], -1),
+            (['o', 'x', 'x'], -1),
+        ]
+
+        feats_weights = []
+        for triplet in self._TRIPLETS:
+            config = [board[i, j] for i, j in triplet]
+            for salient_config, sign in SALIENT_CONFIGS:
+                if config == salient_config:
+                    for i, j in triplet:
+                        piece = board[i, j]
+                        if (piece == 'x' if sign else piece != 'x'):
+                            s = self._PIECE_TO_INT[piece]
+                            feat = 'board[{i},{j}]={s}'.format(**locals())
+                            feats_weights.append((feat, sign))
+        return feats_weights
+
+    def _score_features(self, board, expl):
         scores = np.zeros((3, 3))
-        for feat, coeff in z:
+        for feat, coeff in expl:
             indices = feat.split('[')[-1].split(']')[0].split(',')
             value = int(feat.split('=')[-1])
             i, j = int(indices[0]), int(indices[1])
@@ -143,27 +162,6 @@ class TTTProblem:
         assert(sum(x) == (3 + 3 + 1 + 1))
         return np.array(x, dtype=np.float64)
 
-    def _get_true_y(self, board):
-        for triplet in self._TRIPLETS:
-            board_pieces = [board[i, j] for i, j in triplet]
-            if board_pieces == self._SALIENT_CONFIGS[0][0]:
-                return 1
-        return 0
-
-    def _to_true_expl(self, board):
-        feats_weights = []
-        for triplet in self._TRIPLETS:
-            board_pieces = [board[i, j] for i, j in triplet]
-            for target_pieces, sign in self._SALIENT_CONFIGS:
-                if board_pieces == target_pieces:
-                    for i, j in triplet:
-                        piece = board[i, j]
-                        if (piece == 'x' if sign else piece != 'x'):
-                            s = self._PIECE_TO_INT[piece]
-                            feat = 'board[{i},{j}]={s}'.format(**locals())
-                            feats_weights.append((feat, 2*sign-1))
-        return feats_weights
-
     def query_label(self, i):
         return self.y[i]
 
@@ -195,7 +193,7 @@ class TTTProblem:
         """
         board = self.boards[i]
         true_feats = [feat for (feat, coeff) in
-                      self._to_true_expl(self.boards[i])]
+                      self._board_to_expl(self.boards[i])]
         pred_feats = [feat for (feat, coeff) in pred_z.as_list()]
 
         alt_boards = []
@@ -206,7 +204,7 @@ class TTTProblem:
                 alt_board = np.array(board)
                 alt_board[i,j] = alt_piece
                 # Do not add board with a wrong label
-                if true_y == self._get_true_y(alt_board):
+                if true_y == self._board_to_y(alt_board):
                     alt_boards.append(alt_board)
         if not len(alt_boards):
             return None, None
@@ -218,7 +216,7 @@ class TTTProblem:
         return (np.array(X_extra, dtype=np.float64),
                 np.array(y_extra, dtype=np.int8))
 
-    def get_pipeline(self, learner):
+    def _get_pipeline(self, learner):
         step = PipeStep(lambda Z: np.array([self._z_to_x(z) for z in Z]))
         return make_pipeline(step, learner)
 
@@ -238,7 +236,7 @@ class TTTProblem:
                                     verbose=False)
 
         local_model = Ridge(alpha=1000, fit_intercept=True, random_state=0)
-        pipeline = self.get_pipeline(learner)
+        pipeline = self._get_pipeline(learner)
         explanation = lime.explain_instance(self.Z[i],
                                             pipeline.predict_proba,
                                             model_regressor=local_model,
@@ -246,11 +244,6 @@ class TTTProblem:
                                             num_features=self.n_features)
         print('LIME took', time() - t, 'seconds')
         return explanation
-
-    def _match_ranges(range1, range2):
-        lb = max(range1[0], range2[0])
-        ub = min(range1[1], range2[1])
-        return lb <= ub
 
     def _eval_expl(self, true_z, pred_z):
         matches = set(true_z).intersection(set(pred_z))
@@ -271,7 +264,7 @@ class TTTProblem:
             expl_perfs = []
             for i in eval_examples:
                 true_y = self.y[i]
-                true_z = self._to_true_expl(self.boards[i])
+                true_z = self._board_to_expl(self.boards[i])
 
                 pred_y = learner.predict(_densify(self.X[i]))[0]
                 pred_z = [(feat, int(np.sign(coeff))) for feat, coeff in
@@ -291,7 +284,7 @@ class TTTProblem:
 
     def save_expl(self, path, i, y, z):
         board = self.boards[i]
-        scores = self._board_z_to_scores(board, z)
+        scores = self._score_features(board, z)
 
         fig = plt.figure(figsize=[3, 3])
         ax = fig.add_subplot(111)
@@ -344,10 +337,10 @@ class SVMLearner:
 
         cv = StratifiedKFold(random_state=0)
         self._f_model = LinearSVC(C=C,
-                               penalty='l2',
-                               loss='hinge',
-                               multi_class='ovr',
-                               random_state=0)
+                                  penalty='l2',
+                                  loss='hinge',
+                                  multi_class='ovr',
+                                  random_state=0)
         self._p_model = CalibratedClassifierCV(self._f_model,
                                                method='sigmoid',
                                                cv=cv)
