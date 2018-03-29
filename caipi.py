@@ -2,6 +2,7 @@
 
 import numpy as np
 import pickle
+from collections import defaultdict
 from sklearn.utils import check_random_state
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
@@ -327,6 +328,220 @@ class TTTProblem:
         plt.close(fig)
 
 
+class ColorsProblem:
+
+    _COLORS = [
+        (255,   0,   0), # r
+        (0,   255,   0), # g
+        (0,   128, 255), # b
+        (128,   0, 255), # v
+    ]
+
+    def __init__(self, n_samples, n_features, min_coeff=1e-2, rule=0, rng=None):
+        self.n_samples = n_samples
+        self.n_features = n_features
+        self.min_coeff = min_coeff
+        self.rng = check_random_state(rng)
+        self.rule = rule
+
+        data = np.load(join('data', 'toy_colors.npz'))
+        self.images = np.vstack([data['arr_0'], data['arr_1']])
+        self.images = np.array([image.reshape((5, 5, 3)) for image in self.images])
+        self.y = 1 - np.hstack([data['arr_2'], data['arr_3']])
+
+        pi = self.rng.permutation(len(self.y))
+        self.images = self.images[pi]
+        self.y = self.y[pi]
+
+        N_EXAMPLES = 100
+        self.images = self.images[:N_EXAMPLES]
+        self.y = self.y[:N_EXAMPLES]
+        self.examples = list(range(len(self.y)))
+
+        self.Z = np.array([self._image_to_z(image) for image in self.images])
+        self.X = np.array([self._z_to_x(z) for z in self.Z])
+
+        self.class_names = ['false', 'true']
+        self.z_names = ['image[{r},{c}]'.format(**locals())
+                        for r, c in product(range(5), repeat=2)]
+
+    def _image_to_z(self, image):
+        return np.array([self._COLORS.index(tuple(image[r, c]))
+                         for r, c in product(range(5), repeat=2)],
+                        dtype=np.float64)
+
+    def _z_to_y(self, z):
+        z = z.reshape((5, 5))
+        rule0_applies = (z[0,0] == z[0,4] and
+                         z[0,0] == z[4,0] and
+                         z[0,0] == z[4,4])
+        rule1_applies = (z[0,1] != z[0,2] and
+                         z[0,1] != z[0,3] and
+                         z[0,2] != z[0,3])
+        return 1 if rule0_applies or rule1_applies else 0
+
+    def _z_to_expl(self, z):
+        z = z.reshape((5, 5))
+
+        if self.rule == 0:
+            # RULE 0: the four corner pixels must be identical
+            COORDS = [[0, 0], [0, 4], [4, 0], [4, 4]]
+        else:
+            # RULE 1: the three top middle pixels must be different
+            COORDS = [[0, 1], [0, 2], [0, 3]]
+
+        counts = np.bincount([z[r,c] for r, c in COORDS])
+        max_count, max_value = np.max(counts), np.argmax(counts)
+
+        feat_to_coeff = defaultdict(int)
+        if self.rule == 0:
+            for r, c in COORDS:
+                weight = 1 if max_count != 1 and z[r, c] == max_value else -1
+                feat_to_coeff['image[{},{}]={}'.format(r, c, int(z[r, c]))] += weight
+        else:
+            for r, c in COORDS:
+                weight = 1 if max_count == 1 or z[r, c] != max_value else -1
+                feat_to_coeff['image[{},{}]={}'.format(r, c, int(z[r, c]))] += weight
+
+        return list(feat_to_coeff.items())
+
+    def _z_to_x(self, z):
+        z = z.reshape((5, 5))
+
+        x1 = [1 if z[r1, c1] == z[r2, c2] else 0
+              for r1, c1, r2, c2 in product(range(5), repeat=4)]
+        x2 = [1 if (z[r1, c1] != z[r2, c2] and
+                    z[r1, c1] != z[r3, c3] and
+                    z[r2, c2] != z[r3, c3]) else 0
+              for r1, c1, r2, c2, r3, c3 in product(range(5), repeat=6)]
+        return np.array(x1 + x2, dtype=np.float64)
+
+    def query_label(self, i):
+        return self.y[i]
+
+    def query_improved_expl(self, i, pred_y, pred_expl):
+        true_y = self.y[i]
+        if pred_y != true_y:
+            return None, None
+
+        z = self.Z[i]
+
+        true_feats = [feat for (feat, coeff) in self._z_to_expl(z)]
+        pred_feats = [feat for (feat, coeff) in pred_expl.as_list()]
+
+        alt_Z = []
+        for feat in set(pred_feats) - set(true_feats):
+            indices = feat.split('[')[-1].split(']')[0].split(',')
+            r, c = int(indices[0]), int(indices[1])
+            color = z[5*r+c]
+
+            for alt_color in set(range(4)) - set([color]):
+                alt_z = np.array(z, copy=True)
+                alt_z[5*r+c] = alt_color
+                if true_y == self._z_to_y(alt_z):
+                    alt_Z.append(alt_z)
+
+        if not len(alt_Z):
+            return None, None
+
+        X_extra = [self._z_to_x(alt_z) for alt_z in alt_Z]
+        y_extra = [pred_y for alt_z in alt_Z]
+
+        return (np.array(X_extra, dtype=np.float64),
+                np.array(y_extra, dtype=np.int8))
+
+    def _get_pipeline(self, learner):
+        step = PipeStep(lambda Z: np.array([self._z_to_x(z) for z in Z]))
+        return make_pipeline(step, learner)
+
+    def explain(self, learner, known_examples, i, y_pred):
+        from lime.lime_tabular import LimeTabularExplainer
+        from sklearn.linear_model import Ridge
+        from time import time
+
+        t = time()
+        lime = LimeTabularExplainer(self.Z[known_examples],
+                                    class_names=self.class_names,
+                                    feature_names=self.z_names,
+                                    categorical_features=list(range(self.Z.shape[1])),
+                                    discretize_continuous=False,
+                                    feature_selection='forward_selection',
+                                    kernel_width=0.75,
+                                    verbose=False)
+
+        local_model = Ridge(alpha=1000, fit_intercept=True, random_state=0)
+        pipeline = self._get_pipeline(learner)
+        explanation = lime.explain_instance(self.Z[i],
+                                            pipeline.predict_proba,
+                                            model_regressor=local_model,
+                                            num_samples=self.n_samples,
+                                            num_features=self.n_features)
+        print('LIME took', time() - t, 'seconds')
+        return explanation
+
+    def _eval_expl(self, true_z, pred_z):
+        matches = set(true_z).intersection(set(pred_z))
+        pr = len(matches) / len(pred_z) if len(pred_z) else 0.0
+        rc = len(matches) / len(true_z) if len(true_z) else 0.0
+        f1 = 2 * pr * rc / (pr + rc + 1e-12)
+        return pr, rc, f1
+
+    def eval(self, learner, known_examples, test_examples, eval_examples,
+             t=None, basename=None):
+        pred_perfs = prfs(self.y[test_examples],
+                          learner.predict(self.X[test_examples]),
+                          average='weighted')[:3]
+
+        if eval_examples is None:
+            expl_perfs = -1, -1, -1
+        else:
+            expl_perfs = []
+            for i in eval_examples:
+                pred_y = learner.predict(_densify(self.X[i]))[0]
+                pred_z = [(feat, int(np.sign(coeff))) for feat, coeff in
+                          self.explain(learner, known_examples, i, pred_y).as_list()]
+
+                true_y = self.y[i]
+                true_z = self._z_to_expl(self.Z[i])
+
+                expl_perfs.append(self._eval_expl(true_z, pred_z))
+
+                if basename is not None:
+                    self.save_expl(basename + '_{}_{}.png'.format(i, t),
+                                   i, pred_y, pred_z)
+                    self.save_expl(basename + '_{}_true.png'.format(i),
+                                   i, true_y, true_z)
+
+            expl_perfs = np.mean(expl_perfs, axis=0)
+
+        return tuple(pred_perfs) + tuple(expl_perfs)
+
+    def save_expl(self, path, i, y, expl):
+        from matplotlib.patches import Circle
+
+        z = self.Z[i].reshape((5, 5))
+
+        fig, ax = plt.subplots(1, 1)
+        ax.set_aspect('equal')
+
+        # Draw the image
+        ax.imshow(self.images[i], interpolation='nearest')
+
+        # Draw the explanation
+        for feat, coeff in expl:
+            indices = feat.split('[')[-1].split(']')[0].split(',')
+            r, c = int(indices[0]), int(indices[1])
+            value = int(feat.split('=')[-1])
+            if z[r, c] == value:
+                ax.add_patch(Circle((c, r), 0.4, color='#000000'))
+                if coeff > 0:
+                    ax.add_patch(Circle((c, r), 0.35, color='#FFFFFF'))
+
+        fig.savefig(path, bbox_inches=0, pad_inches=0)
+        plt.close(fig)
+
+
+
 class SVMLearner:
     def __init__(self, problem, strategy, C=1.0, kernel='linear', rng=None):
         self.problem = problem
@@ -575,6 +790,10 @@ def subsample(problem, examples, prop, rng):
 
 PROBLEMS = {
     'ttt': TTTProblem,
+    'colors-rule0': lambda *args, **kwargs: \
+            ColorsProblem(*args, rule=0, **kwargs),
+    'colors-rule1': lambda *args, **kwargs: \
+            ColorsProblem(*args, rule=1, **kwargs),
 }
 
 
@@ -657,7 +876,7 @@ def main():
                             t='train', basename=basename)
         print('perf on full training set =', perf)
 
-        print('Computing augmented training set...')
+        print('Computing corrections...')
         X_corr, y_corr = None, None
         for i in train_examples:
             x = _densify(problem.X[i])
