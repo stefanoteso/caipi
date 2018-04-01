@@ -1,6 +1,6 @@
 #!/bin/bash
 
-N_SAMPLES=2000 # make LIME stable enough
+N_SAMPLES=200
 
 for S in random; do
     ./caipi.py colors-rule0 svm $S -T 70 -p 0.01 -S $N_SAMPLES -F 4
