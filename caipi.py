@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-from abc import ABC, abstractmethod
 import numpy as np
+import scipy as sp
+import re
 import pickle
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
@@ -14,18 +15,40 @@ from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.gaussian_process import GaussianProcessRegressor, GaussianProcessClassifier
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from lime.lime_tabular import LimeTabularExplainer
+from lime.lime_text import LimeTextExplainer
 from itertools import product
 from os.path import join
 from blessings import Terminal
 from time import time
 
-
-# TODO test with anchor
-# TODO handle false negatives and polarity using counterexamples (which satisfy the explanation but have the opposite label)
-# TODO make 20newsgroups work with the separate sampling/test set
-# TODO make images work with the separate sampling/test set
+# TODO:
+#
+# - toy
+#  - DONE
+#
+# - colors
+#  - check if LIME+DT works
+#  - use anchors
+#
+# - ttt
+#  - check if LIME+DT works
+#  - use anchors
+#
+# - newsgroups
+#  - implement RBF SVM
+#  - restrict queries and eval to examples with explanations
+#  - move preparation script
+#
+# - reviews
+#  - implement RBF SVM
+#  - fix explanation feedback
+#  - implement pos/neg feedback
+#
+# - images
+#  - find a decent model and dataset
 
 
 _TERM = Terminal()
@@ -41,6 +64,39 @@ def dump(path, what, **kwargs):
         pickle.dump(what, fp, **kwargs)
 
 
+def _densify(x):
+    try:
+        x = x.toarray()
+    except AttributeError:
+        pass
+    if x.shape[0] != 1:
+        # if X[i] is already dense, densify(X[i]) is a no-op, so we get an x
+        # of shape (n_features,) and we turn it into (1, n_features);
+        # if X[i] is sparse, densify(X[i]) gives an x of shape (1, n_features).
+        x = x[np.newaxis, ...]
+    return x
+
+
+def _stack(arrays, d_stack, s_stack):
+    arrays = [a for a in arrays if a is not None]
+    if len(arrays) == 0:
+        return None
+    if len(arrays) == 1:
+        return arrays[0]
+    if isinstance(arrays[0], sp.sparse.csr_matrix):
+        return s_stack(arrays)
+    else:
+        return d_stack(arrays)
+
+vstack = lambda arrays: _stack(arrays, np.vstack, sp.sparse.vstack)
+hstack = lambda arrays: _stack(arrays, np.hstack, sp.sparse.hstack)
+
+
+def _enum_nontest(problem, test_examples, X):
+    test_instances = {tuple(x) for x in problem.X[test_examples]}
+    return [i for i in range(len(X)) if tuple(X[i]) not in test_instances]
+
+
 class PipeStep:
     def __init__(self, func):
         self.func = func
@@ -52,43 +108,61 @@ class PipeStep:
         return self.func(X)
 
 
-class TabularProblem(ABC):
-    def __init__(self, Z, y, class_names, z_names,
-                 n_samples, n_features, kernel_width,
-                 metric='euclidean', rng=None):
-        self.Z, self.y = Z, y
-        self.X = np.array([self.z_to_x(z) for z in Z], dtype=np.float64)
-        self.class_names = class_names
-        self.z_names = z_names
+class Problem:
+    def __init__(self, n_samples, n_features, kernel_width, metric='euclidean',
+                 rng=None):
+        self.rng = check_random_state(rng)
 
         self.n_samples = n_samples
         self.n_features = n_features
         self.kernel_width = kernel_width
         self.metric = metric
-        self.rng = check_random_state(rng)
 
-    @abstractmethod
-    def z_to_x(self, z):
-        pass
+    def explain(self, learner, known_examples, i, y_pred):
+        """Computes the learner's explanation of a prediction."""
+        raise NotImplementedError()
 
-    @abstractmethod
-    def z_to_y(self, z):
-        pass
+    def query_label(self, i):
+        """Queries the oracle for a label."""
+        raise NotImplementedError()
 
-    @abstractmethod
-    def z_to_expl(self, z):
-        pass
+    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl):
+        """Queries the oracle for an improved explanation."""
+        raise NotImplementedError()
 
-    @abstractmethod
     def save_expl(self, path, i, pred_y, expl):
-        pass
+        """Saves an explanation to file."""
+        raise NotImplementedError()
+
+    def eval(self, learner, known_examples, test_examples, eval_examples,
+             t=None, basename=None):
+        """Evaluates the learner."""
+        raise NotImplementedError()
+
+
+class TabularProblem(Problem):
+    def __init__(self, *args, Z, y, class_names, z_names, **kwargs):
+        self.Z, self.y = Z, y
+        self.X = np.array([self.z_to_x(z) for z in Z], dtype=np.float64)
+        self.class_names = class_names
+        self.z_names = z_names
+
+        super().__init__(*args, **kwargs)
+
+    def z_to_x(self, z):
+        """Converts an interpretable instance to an instance."""
+        raise NotImplementedError()
+
+    def z_to_y(self, z):
+        """Computes the true label of an interpretable instance."""
+        raise NotImplementedError()
+
+    def z_to_expl(self, z):
+        """Computes the true explanation of an interpretable instance."""
+        raise NotImplementedError()
 
     def query_label(self, i):
         return self.y[i]
-
-    @abstractmethod
-    def query_improved_expl(self, i, pred_y, pred_expl):
-        pass
 
     def explain(self, learner, known_examples, i, y_pred):
         all_features = list(range(self.Z.shape[1]))
@@ -106,7 +180,8 @@ class TabularProblem(ABC):
         pipeline = make_pipeline(step, learner)
 
         t = time()
-        local_model = Ridge(alpha=1000, fit_intercept=True, random_state=0)
+        # XXX set alpha to 1000 for TTT
+        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
         try:
             explanation = lime.explain_instance(self.Z[i],
                                                 pipeline.predict_proba,
@@ -193,7 +268,7 @@ class ToyProblem(TabularProblem):
         z_names = ['{},{}'.format(r, c)
                    for r, c in product(range(3), repeat=2)]
 
-        super().__init__(Z, y, class_names, z_names, *args,
+        super().__init__(*args, Z, y, class_names, z_names, *args,
                          metric='hamming', **kwargs)
 
     def z_to_x(self, z):
@@ -224,25 +299,33 @@ class ToyProblem(TabularProblem):
         value = int(feat.split(',')[-1].split('=')[-1])
         return r, c, value
 
-    def query_improved_expl(self, i, pred_y, pred_expl):
-        z = self.Z[i]
+    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
+        if pred_expl is None:
+            return X_corr, y_corr
 
+        z = self.Z[i]
         true_feats = [feat.split('=')[0] for (feat, _) in self.z_to_expl(z)]
         pred_feats = [feat.split('=')[0] for (feat, _) in pred_expl.as_list()]
 
-        Z_corr = []
+        Z_new_corr = []
         for feat in set(pred_feats) - set(true_feats):
             r, c, _ = self._parse_feat(feat)
             z_corr = np.array(z, copy=True)
             z_corr[3*r+c] = 1 - z_corr[3*r+c]
             if self.z_to_y(z_corr) == pred_y:
-                Z_corr.append(z_corr)
+                Z_new_corr.append(z_corr)
 
-        if not len(Z_corr):
-            return None, None
+        X_new_corr = np.array([z_corr for z_corr in Z_new_corr
+                               if not tuple(z_corr) in X_test],
+                              dtype=np.float64)
+        y_new_corr = np.array([pred_y for _ in Z_corr], dtype=np.int8)
 
-        X_corr = np.array(Z_corr, dtype=np.float64)
-        y_corr = np.array([pred_y for _ in Z_corr], dtype=np.int8)
+        if not len(X_new_corr):
+            return X_corr, y_corr
+
+        X_corr = vstack([X_corr, X_new_corr])
+        y_corr = hstack([y_corr, y_new_corr])
+        raise NotImplementedError()
         return X_corr, y_corr
 
     def save_expl(self, path, i, y, expl):
@@ -309,7 +392,6 @@ class ColorsProblem(TabularProblem):
                          metric='hamming', **kwargs)
 
     def z_to_x(self, z):
-        return z
         x = [1 if z[i] == z[j] else 0
              for i in range(5*5)
              for j in range(i+1, 5*5)]
@@ -596,6 +678,155 @@ class TTTProblem(TabularProblem):
 
 
 
+class TextProblem(Problem):
+    def explain(self, learner, known_examples, i, y_pred):
+        explainer = LimeTextExplainer(class_names=self.class_names)
+
+        pipeline = make_pipeline(self.vectorizer, learner)
+        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
+        expl = explainer.explain_instance(self.processed_docs[i],
+                                          pipeline.predict_proba,
+                                          model_regressor=local_model,
+                                          num_features=self.n_features,
+                                          num_samples=self.n_samples)
+        return expl
+
+    def query_label(self, i):
+        return self.y[i]
+
+    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
+        if pred_expl is None:
+            return X_corr, y_corr
+
+        true_words = {word for word, _ in self.explanations[i]}
+        if not len(true_words):
+            # No explanation known for this example
+            return X_corr, y_corr
+        pred_words = {word for word, _ in pred_expl.as_list()}
+
+        doc_words = set(self.processed_docs[i].split())
+
+        corrected_docs = []
+        for word in pred_words - true_words:
+            corrected_docs.append(' '.join(doc_words - set([word])))
+
+        if not len(corrected_docs):
+            return X_corr, y_corr
+
+        X_new_corr = self.vectorizer.transform(corrected_docs)
+        y_new_corr = np.array([pred_y for _ in corrected_docs], dtype=np.int8)
+
+        X_corr = vstack([X_corr, X_new_corr])
+        y_corr = hstack([y_corr, y_new_corr])
+        return X_corr, y_corr
+
+    @staticmethod
+    def _highlight_words(text, expl):
+        for word, coeff in expl:
+            color = _TERM.green if coeff >= 0 else _TERM.red
+            colored_word = color + word + _TERM.normal
+            matches = list(re.compile(word).finditer(text))
+            matches.reverse()
+            for match in matches:
+                start = match.start()
+                text = text[:start] + colored_word + text[start+len(word):]
+        return text
+
+    def save_expl(self, path, i, pred_y, expl):
+        with open(path, 'wt') as fp:
+            fp.write('true y: ' + self.class_names[self.y[i]] + '\n')
+            fp.write('pred y: ' + self.class_names[pred_y] + '\n')
+            fp.write(80 * '-' + '\n')
+            fp.write(self._highlight_words(self.docs[i], expl))
+            fp.write('\n' + 80 * '-' + '\n')
+            fp.write('explanation:\n')
+            for word, coeff in expl:
+                fp.write('{:32s} : {:3.1f}\n'.format(word, coeff))
+
+    def _eval_expl(self, learner, known_examples, eval_examples,
+                   t=None, basename=None):
+        if eval_examples is None:
+            return -1, -1, -1
+
+        perfs = []
+        for i in eval_examples:
+            true_y = self.y[i]
+            true_expl = self.explanations[i]
+
+            pred_y = learner.predict(_densify(self.X[i]))[0]
+            pred_expl = self.explain(learner, known_examples, i, pred_y)
+            pred_expl = [(feat, int(np.sign(coeff)))
+                         for feat, coeff in pred_expl.as_list()]
+
+            matches = set(map(tuple, true_expl)).intersection(set(pred_expl))
+            pr = len(matches) / len(pred_expl) if len(pred_expl) else 0.0
+            rc = len(matches) / len(true_expl) if len(true_expl) else 0.0
+            f1 = 0.0 if pr + rc <= 0 else 2 * pr * rc / (pr + rc)
+            perfs.append((pr, rc, f1))
+
+            if basename is None:
+                continue
+
+            self.save_expl(basename + '_{}_{}.txt'.format(i, t),
+                           i, pred_y, pred_expl)
+            self.save_expl(basename + '_{}_true.txt'.format(i),
+                           i, true_y, true_expl)
+
+        return np.mean(perfs, axis=0)
+
+    def eval(self, learner, known_examples, test_examples, eval_examples,
+             t=None, basename=None):
+        pred_perfs = prfs(self.y[test_examples],
+                          learner.predict(self.X[test_examples]),
+                          average='weighted')[:3]
+        expl_perfs = self._eval_expl(learner,
+                                     known_examples,
+                                     eval_examples,
+                                     t=t, basename=basename)
+        return tuple(pred_perfs) + tuple(expl_perfs)
+
+
+class NewsgroupsProblem(TextProblem):
+    def __init__(self, *args, classes=None, min_words=10, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        path = join('data', '20newsgroups_{}_{}.pickle'.format(
+                        '+'.join(sorted(classes)), min_words))
+        try:
+            dataset = load(path)
+        except:
+            raise RuntimeError('Run the data preparation script first!')
+
+        self.class_names = classes
+        self.y = dataset.target
+        self.docs = dataset.data
+        self.processed_docs = dataset.processed_data
+        self.explanations = dataset.explanations
+
+        self.vectorizer = TfidfVectorizer(lowercase=False).fit(self.processed_docs)
+        self.X = self.vectorizer.transform(self.processed_docs)
+
+
+class ReviewsProblem(TextProblem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        path = join('data', 'review_polarity_rationales.pickle')
+        try:
+            dataset = load(path)
+        except:
+            raise RuntimeError('Run the data preparation script first!')
+
+        self.class_names = ['neg', 'pos']
+        self.y = dataset['y']
+        self.docs = self.processed_docs = dataset['docs']
+        self.explanations = dataset['explanations']
+
+        self.vectorizer = TfidfVectorizer(lowercase=False) \
+                              .fit(self.processed_docs)
+        self.X = self.vectorizer.transform(self.processed_docs)
+
+
 class SVMLearner:
     def __init__(self, problem, strategy, C=1.0, kernel='linear', sparse=False,
                  rng=None):
@@ -760,37 +991,6 @@ class GPLearner:
         return self._c_model.predict_proba(X)
 
 
-def _densify(x):
-    try:
-        x = x.toarray()
-    except AttributeError:
-        pass
-    if x.shape[0] != 1:
-        # if X[i] is already dense, densify(X[i]) is a no-op, so we get an x
-        # of shape (n_features,) and we turn it into (1, n_features);
-        # if X[i] is sparse, densify(X[i]) gives an x of shape (1, n_features).
-        x = x[np.newaxis, ...]
-    return x
-
-
-def _stack(stack, arrays):
-    arrays = [a for a in arrays if a is not None]
-    if len(arrays) == 0:
-        return None
-    elif len(arrays) == 1:
-        return arrays[0]
-    return stack(arrays)
-
-
-vstack = lambda arrays: _stack(np.vstack, arrays)
-hstack = lambda arrays: _stack(np.hstack, arrays)
-
-
-def _enum_nontest(problem, test_examples, X):
-    test_instances = {tuple(x) for x in problem.X[test_examples]}
-    return [i for i in range(len(X)) if tuple(X[i]) not in test_instances]
-
-
 def caipi(problem,
           learner,
           train_examples,
@@ -810,6 +1010,8 @@ def caipi(problem,
           len(train_examples), len(known_examples),
           len(test_examples), len(eval_examples)))
 
+    X_test_tuples = {tuple(_densify(problem.X[i]).ravel()) for i in test_examples}
+
     learner.fit(problem.X[known_examples],
                 problem.y[known_examples])
 
@@ -820,7 +1022,6 @@ def caipi(problem,
         if len(known_examples) >= len(train_examples):
             break
 
-        # print('selecting a query instance...')
         unknown_examples = set(train_examples) - set(known_examples)
         i = learner.select_query(problem, unknown_examples)
         assert i in train_examples and i not in known_examples
@@ -828,34 +1029,22 @@ def caipi(problem,
 
         explain = 0 <= start_expl_at <= t
 
-        # print('predicting...')
         pred_y = learner.predict(x)[0]
+        pred_expl = problem.explain(learner, known_examples, i, pred_y) \
+                    if explain else None
 
-        # print('explaining...')
-        pred_z = problem.explain(learner, known_examples, i, pred_y) \
-                 if explain else None
-
-        # print('querying label...')
         true_y = problem.query_label(i)
         known_examples.append(i)
 
-        if pred_z is not None and improve_expl:
-            # print('querying improved explanation...')
-            X_extra, y_extra = problem.query_improved_expl(i, pred_y, pred_z)
-            # XXX make sure not to add examples in the test set
-            X_corr = vstack([X_corr, X_extra])
-            y_corr = hstack([y_corr, y_extra])
+        if explain and improve_expl:
+            X_corr, y_corr = \
+                problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl,
+                                          X_test_tuples)
+            raise NotImplementedError()
 
-        if X_corr is not None:
-            valid_corr = _enum_nontest(problem, test_examples, X_corr)
-            X_corr = X_corr[valid_corr] if len(valid_corr) else None
-            y_corr = y_corr[valid_corr] if len(valid_corr) else None
-
-        # print('fitting...')
         learner.fit(vstack([X_corr, problem.X[known_examples]]),
                     hstack([y_corr, problem.y[known_examples]]))
 
-        # print('evaluating...')
         do_eval = t % eval_iters == 0
         perf = problem.eval(learner,
                             known_examples,
@@ -877,7 +1066,140 @@ def caipi(problem,
     return perfs
 
 
-def get_basename(args):
+def _subsample(problem, examples, prop, rng=None):
+    rng = check_random_state(rng)
+
+    classes = sorted(set(problem.y))
+    n_sampled = int(round(len(examples) * prop))
+    n_sampled_per_class = max(n_sampled // len(classes), 3)
+
+    sample = []
+    for y in classes:
+        examples_y = np.array([i for i in examples if problem.y[i] == y])
+        pi = rng.permutation(len(examples_y))
+        sample.extend(examples_y[pi[:n_sampled_per_class]])
+
+    return list(sample)
+
+
+def eval_passive(problem, args, rng=None):
+    """Useful for checking the based performance of the learner and whether
+    the explanations are stable."""
+
+    rng = check_random_state(rng)
+    basename = _get_basename(args)
+
+    folds = StratifiedShuffleSplit(n_splits=args.n_folds, random_state=rng) \
+                .split(problem.y, problem.y)
+    train_examples, test_examples = list(folds)[0]
+    eval_examples = _subsample(problem, test_examples,
+                               args.prop_eval, rng=rng)
+    print('#train={} #test={} #eval={}'.format(
+        len(train_examples), len(test_examples), len(eval_examples)))
+
+    learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
+    learner.select_model(problem.X[train_examples],
+                         problem.y[train_examples])
+    learner.fit(problem.X[train_examples],
+                problem.y[train_examples])
+    train_params = learner.get_params()
+
+    print('Computing full-train performance...')
+    perf = problem.eval(learner, train_examples,
+                        test_examples, eval_examples,
+                        t='train', basename=basename)
+    print('perf on full training set =', perf)
+
+    print('Checking LIME stability...')
+    perf = problem.eval(learner, train_examples,
+                        test_examples, eval_examples,
+                        t='train2', basename=basename)
+    print('perf on full training set =', perf)
+
+    print('Computing corrections for {} examples...'.format(len(train_examples)))
+    X_test_tuples = {tuple(_densify(problem.X[i]).ravel())
+                     for i in test_examples}
+
+    X_corr, y_corr = None, None
+    for j, i in enumerate(train_examples):
+        print('  correcting {:3d} / {:3d}'.format(j + 1, len(train_examples)))
+        x = _densify(problem.X[i])
+        pred_y = learner.predict(x)[0]
+        pred_expl = problem.explain(learner, train_examples, i, pred_y)
+        X_corr, y_corr = problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl, X_test_tuples)
+
+    if X_corr is None:
+        print('no corrections were obtained')
+        return
+    print(X_corr.shape[0], 'corrections obtianed')
+
+    print('Computing corr performance...')
+    corr_params = None
+    if np.min(y_corr) != np.max(y_corr):
+        learner.select_model(X_corr, y_corr)
+        learner.fit(X_corr, y_corr)
+        corr_params = learner.get_params()
+        perf = problem.eval(learner, train_examples,
+                            test_examples, eval_examples,
+                            t='corr', basename=basename)
+    print('perf on corr only =', perf)
+
+    print('Computing train+corr performance...')
+    X_train_corr = vstack([problem.X[train_examples], X_corr])
+    y_train_corr = hstack([problem.y[train_examples], y_corr])
+    learner.select_model(X_train_corr, y_train_corr)
+    learner.fit(X_train_corr, y_train_corr)
+    train_corr_params = learner.get_params()
+    perf = problem.eval(learner, train_examples,
+                        test_examples, eval_examples,
+                        t='train+corr', basename=basename)
+    print('perf on train+corr set =', perf)
+
+    print('w_train        :\n', train_params)
+    print('w_corr         :\n', corr_params)
+    print('w_{train+corr} :\n', train_corr_params)
+
+
+def _eval_interactive(args, problem, rng=None):
+    """The main evaluation loop."""
+
+    rng = check_random_state(args.seed)
+    basename = _get_basename(args)
+
+    folds = StratifiedKFold(n_splits=args.n_folds, random_state=rng) \
+                .split(problem.y, problem.y)
+
+    perfs = []
+    for k, (train_examples, test_examples) in enumerate(folds):
+        print('Running fold {}/{}'.format(k + 1, args.n_folds))
+
+        train_examples = list(train_examples)
+        known_examples = _subsample(problem, train_examples,
+                                    args.prop_known, rng=rng)
+        test_examples = list(test_examples)
+        eval_examples = _subsample(problem, test_examples,
+                                   args.prop_eval, rng=rng)
+
+        learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
+
+        perf = caipi(problem,
+                     learner,
+                     train_examples,
+                     known_examples,
+                     test_examples,
+                     eval_examples,
+                     max_iters=args.max_iters,
+                     start_expl_at=args.start_expl_at,
+                     eval_iters=args.eval_iters,
+                     improve_expl=args.improve_expl,
+                     basename=basename + '_fold={}'.format(k),
+                     rng=rng)
+        perfs.append(perf)
+
+    dump(basename + '.pickle', {'args': args, 'perfs': perfs})
+
+
+def _get_basename(args):
     fields = [
         ('problem', args.problem),
         ('learner', args.learner),
@@ -889,26 +1211,13 @@ def get_basename(args):
         ('start-expl-at', args.start_expl_at),
         ('eval-iters', args.eval_iters),
         ('improve-expl', args.improve_expl),
-        ('n-samples', args.n_samples),
         ('n-features', args.n_features),
+        ('n-samples', args.n_samples),
+        ('kernel-width', args.kernel_width),
         ('seed', args.seed),
     ]
     basename = '__'.join([name + '=' + str(value) for name, value in fields])
     return join('results', basename)
-
-
-def subsample(problem, examples, prop, rng):
-    classes = sorted(set(problem.y))
-    n_sampled = max(round(len(examples) * prop), len(classes))
-    n_sampled_per_class = max(n_sampled // len(classes), 3)
-
-    sample = []
-    for y in classes:
-        y_examples = np.array([i for i in examples if problem.y[i] == y])
-        pi = rng.permutation(len(y_examples))
-        sample.extend(y_examples[pi[:n_sampled_per_class]])
-
-    return list(sample)
 
 
 PROBLEMS = {
@@ -921,6 +1230,11 @@ PROBLEMS = {
     'colors-rule1': lambda *args, **kwargs: \
             ColorsProblem(*args, rule=1, **kwargs),
     'ttt': TTTProblem,
+    'newsgroups': lambda *args, **kwargs: \
+            NewsgroupsProblem(*args,
+                              classes=['sci.electronics', 'sci.med'],
+                              **kwargs),
+    'reviews': ReviewsProblem,
 }
 
 
@@ -955,12 +1269,12 @@ def main():
     group.add_argument('-p', '--prop-known', type=float, default=0.1,
                        help='Proportion of initial labelled examples')
     group.add_argument('-P', '--prop-eval', type=float, default=0.1,
-                       help='Proportion of the test set to evaluate the'
+                       help='Proportion of the test set to evaluate the '
                             'explanations on')
     group.add_argument('-T', '--max-iters', type=int, default=100,
                        help='Maximum number of learning iterations')
     group.add_argument('-e', '--eval-iters', type=int, default=10,
-                       help='Interval for evaluating performance on the'
+                       help='Interval for evaluating performance on the '
                        'evaluation set')
     group.add_argument('--passive', action='store_true',
                        help='DEBUG: eval perfs using passive learning')
@@ -970,18 +1284,17 @@ def main():
                        help='Iteration at which explanations kick in')
     group.add_argument('-I', '--improve-expl', action='store_true',
                        help='Whether the explanations should be improved')
-    group.add_argument('-S', '--n-samples', type=int, default=5000,
-                       help='Size of the LIME sampled dataset')
     group.add_argument('-F', '--n-features', type=int, default=10,
                        help='Number of LIME features to present the user')
+    group.add_argument('-S', '--n-samples', type=int, default=5000,
+                       help='Size of the LIME sampled dataset')
     group.add_argument('-K', '--kernel-width', type=float, default=0.75,
                        help='LIME kernel width')
     args = parser.parse_args()
 
-    basename = get_basename(args)
-
     np.seterr(all='raise')
-    np.set_printoptions(precision=3, linewidth=240)
+    np.set_printoptions(precision=3, linewidth=80)
+
     rng = np.random.RandomState(args.seed)
 
     print('Creating problem...')
@@ -991,115 +1304,11 @@ def main():
                                      rng=rng)
 
     if args.passive:
-
-        folds = StratifiedShuffleSplit(n_splits=args.n_folds, random_state=rng) \
-                    .split(problem.y, problem.y)
-        train_examples, test_examples = list(folds)[0]
-        eval_examples = subsample(problem, test_examples,
-                                  args.prop_eval, rng)
-
-        learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
-
-        print('#train={} #test={} #eval={}'.format(
-            len(train_examples), len(test_examples), len(eval_examples)))
-
-        print('Computing full-train performance...')
-        learner.fit(problem.X[train_examples],
-                    problem.y[train_examples])
-        train_params = learner.get_params()
-        perf = problem.eval(learner, train_examples,
-                            test_examples, eval_examples,
-                            t='train', basename=basename)
-        print('perf on full training set =', perf)
-
-        print('Checking LIME stability...')
-        perf = problem.eval(learner, train_examples,
-                            test_examples, eval_examples,
-                            t='train2', basename=basename)
-        print('perf on full training set =', perf)
-
-        print('w_train        :', train_params)
-
-        print('Computing corrections for {} examples...'.format(len(train_examples)))
-        X_corr, y_corr = None, None
-        for i in train_examples:
-            x = _densify(problem.X[i])
-            pred_y = learner.predict(x)[0]
-            pred_z = problem.explain(learner, train_examples, i, pred_y)
-            X_extra, y_extra = \
-                problem.query_improved_expl(i, pred_y, pred_z)
-            X_corr = vstack([X_corr, X_extra])
-            y_corr = hstack([y_corr, y_extra])
-
-        if X_corr is None:
-            print('no corrections were needed')
-            return
-
-        valid_corr = _enum_nontest(problem, test_examples, X_corr)
-        X_corr = X_corr[valid_corr]
-        y_corr = y_corr[valid_corr]
-
-        print('# corrections =', len(X_corr))
-        if not len(X_corr):
-            print('no valid corrections were found')
-            return
-
-        augmt_params = None
-        if np.min(y_corr) != np.max(y_corr):
-            print('Computing corrections performance...')
-            learner.fit(X_corr, y_corr)
-            augmt_params = learner.get_params()
-            perf = problem.eval(learner, train_examples,
-                                test_examples, eval_examples,
-                                t='corr', basename=basename)
-            print('perf on corr only =', perf)
-
-        print('Computing train+corrections performance...')
-        learner.fit(vstack([problem.X[train_examples], X_corr]),
-                    hstack([problem.y[train_examples], y_corr]))
-        augmt_train_params = learner.get_params()
-        perf = problem.eval(learner, train_examples,
-                            test_examples, eval_examples,
-                            t='train+corr', basename=basename)
-        print('perf on train+corr set =', perf)
-
-        print('w_corr         :', augmt_params)
-        print('w_{train+corr} :', augmt_train_params)
-
+        print('Evaluating passive learning...')
+        eval_passive(problem, args, rng=rng)
     else:
-
-        folds = StratifiedKFold(n_splits=args.n_folds, random_state=rng) \
-                    .split(problem.y, problem.y)
-
-        perfs = []
-        for k, (train_examples, test_examples) in enumerate(folds):
-            print('Running fold {}/{}'.format(k + 1, args.n_folds))
-
-            train_examples = list(train_examples)
-            known_examples = subsample(problem, train_examples,
-                                       args.prop_known, rng)
-            test_examples = list(test_examples)
-            eval_examples = subsample(problem, test_examples,
-                                      args.prop_eval, rng)
-
-            learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
-
-            perf = caipi(problem,
-                         learner,
-                         train_examples,
-                         known_examples,
-                         test_examples,
-                         eval_examples,
-                         max_iters=args.max_iters,
-                         start_expl_at=args.start_expl_at,
-                         eval_iters=args.eval_iters,
-                         improve_expl=args.improve_expl,
-                         basename=basename + '_fold={}'.format(k),
-                         rng=rng)
-            perfs.append(perf)
-
-        dump(get_basename(args) + '.pickle', {'args': args, 'perfs': perfs})
-
+        print('Evaluating interactive learning...')
+        eval_interactive(problem, args, rng=rng)
 
 if __name__ == '__main__':
     main()
