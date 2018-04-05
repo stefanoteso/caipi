@@ -1,19 +1,25 @@
-- tabular
-    - @Stefano: make tictactoe explanations work
-    - @Stefano: compare to oracle DT and "active" DT since DTs can solve tictactoe exactly
+- toy
+    - DONE
 
-- 20newsgroups
-    - @Antonio: fix data preparation and features for text, to be used with
-      SVM and GP
+- colors
+    - try LIME+DT
+    - use anchors
+
+- tic-tac-toe
+    - try LIME+DT
+    - use anchors
+
+- newsgroups
+    - restrict selection and evaluation to explained examples
+    - make it work with RBF SVM?
+    - move preparation scritp
+
+- reviews
+    - let explanations be full sentences
+    - check how people learn from these explanations and do the same
+    - make it work with RBF SVM?
+
 - images:
-    - @Antonio: implement active learning on the topmost layer of a pre-trained
-      deep network, choose classification task wisely
+    - find a (deep?) model and dataset
 
-- measurements
-    - @Stefano: compute recall also against DT and L1-logreg directly
-
-- explanations
-    - @Stefano: display oracle explanations along with LIME explanations
-    - @Stefano: track actual explanations as images or something
-
-- @all: figure out a way to solve Q3 and Q4
+- competitors?
