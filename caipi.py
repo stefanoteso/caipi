@@ -5,35 +5,34 @@ from sklearn.utils import check_random_state
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 from os.path import join
 
-import caipi
-from caipi import densify, vstack, hstack
+from caipi import *
 
 
 PROBLEMS = {
     'toy-fst': lambda *args, **kwargs: \
-            caipi.ToyProblem(*args, rule='fst', **kwargs),
+            ToyProblem(*args, rule='fst', **kwargs),
     'toy-lst': lambda *args, **kwargs: \
-            caipi.ToyProblem(*args, rule='lst', **kwargs),
+            ToyProblem(*args, rule='lst', **kwargs),
     'colors-rule0': lambda *args, **kwargs: \
-            caipi.ColorsProblem(*args, rule=0, **kwargs),
+            ColorsProblem(*args, rule=0, **kwargs),
     'colors-rule1': lambda *args, **kwargs: \
-            caipi.ColorsProblem(*args, rule=1, **kwargs),
-    'ttt': caipi.TTTProblem,
+            ColorsProblem(*args, rule=1, **kwargs),
+    'ttt': TTTProblem,
     'newsgroups': lambda *args, **kwargs: \
-            caipi.NewsgroupsProblem(*args,
-                                    classes=['sci.electronics', 'sci.med'],
-                                    **kwargs),
-    'reviews': caipi.ReviewsProblem,
+            NewsgroupsProblem(*args,
+                              classes=['sci.electronics', 'sci.med'],
+                              **kwargs),
+    'reviews': ReviewsProblem,
 }
 
 
 LEARNERS = {
     'svm': lambda *args, **kwargs: \
-            caipi.SVMLearner(*args, sparse=False, **kwargs),
+            SVMLearner(*args, sparse=False, **kwargs),
     'l1svm': lambda *args, **kwargs: \
-            caipi.SVMLearner(*args, sparse=True, **kwargs),
-    'lr': caipi.LRLearner,
-    'gp': caipi.GPLearner,
+            SVMLearner(*args, sparse=True, **kwargs),
+    'lr': LRLearner,
+    'gp': GPLearner,
 }
 
 
@@ -74,6 +73,82 @@ def _subsample(problem, examples, prop, rng=None):
         sample.extend(examples_y[pi[:n_sampled_per_class]])
 
     return list(sample)
+
+
+def caipi(problem,
+          learner,
+          train_examples,
+          known_examples,
+          test_examples,
+          eval_examples,
+          max_iters=100,
+          start_expl_at=-1,
+          eval_iters=10,
+          improve_expl=False,
+          basename=None,
+          rng=None):
+    rng = check_random_state(rng)
+
+    print('CAIPI T={} #train={} #known={} #test={} #eval={}'.format(
+          max_iters,
+          len(train_examples), len(known_examples),
+          len(test_examples), len(eval_examples)))
+
+    X_test_tuples = {tuple(densify(problem.X[i]).ravel()) for i in test_examples}
+
+    learner.select_model(problem.X[known_examples],
+                         problem.y[known_examples])
+    learner.fit(problem.X[known_examples],
+                problem.y[known_examples])
+
+    perfs = []
+    X_corr, y_corr = None, None
+    for t in range(max_iters):
+
+        if len(known_examples) >= len(train_examples):
+            break
+
+        unknown_examples = set(train_examples) - set(known_examples)
+        i = learner.select_query(problem, unknown_examples)
+        assert i in train_examples and i not in known_examples
+        x = densify(problem.X[i])
+
+        explain = 0 <= start_expl_at <= t
+
+        pred_y = learner.predict(x)[0]
+        pred_expl = problem.explain(learner, known_examples, i, pred_y) \
+                    if explain else None
+
+        true_y = problem.query_label(i)
+        known_examples.append(i)
+
+        if explain and improve_expl:
+            X_corr, y_corr = \
+                problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl,
+                                          X_test_tuples)
+
+        learner.fit(vstack([X_corr, problem.X[known_examples]]),
+                    hstack([y_corr, problem.y[known_examples]]))
+
+        do_eval = t % eval_iters == 0
+        perf = problem.eval(learner,
+                            known_examples,
+                            test_examples,
+                            eval_examples if do_eval else None,
+                            t=t, basename=basename)
+        n_corrections = len(y_corr) if y_corr is not None else 0
+        perf += (n_corrections,)
+
+        # print('selecting model...')
+        #if t >=5 and t % 5 == 0:
+        #    learner.select_model(vstack([X_corr, problem.X[known_examples]]),
+        #                         hstack([y_corr, problem.y[known_examples]]))
+
+        params = np.round(learner.get_params(), decimals=1)
+        print('{t:3d} : model = {params},  perfs = {perf}'.format(**locals()))
+        perfs.append(perf)
+
+    return perfs
 
 
 def eval_passive(problem, args, rng=None):
@@ -176,21 +251,21 @@ def eval_interactive(problem, args, rng=None):
 
         learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
 
-        perf = caipi.caipi(problem,
-                           learner,
-                           train_examples,
-                           known_examples,
-                           test_examples,
-                           eval_examples,
-                           max_iters=args.max_iters,
-                           start_expl_at=args.start_expl_at,
-                           eval_iters=args.eval_iters,
-                           improve_expl=args.improve_expl,
-                           basename=basename + '_fold={}'.format(k),
-                           rng=rng)
+        perf = caipi(problem,
+                     learner,
+                     train_examples,
+                     known_examples,
+                     test_examples,
+                     eval_examples,
+                     max_iters=args.max_iters,
+                     start_expl_at=args.start_expl_at,
+                     eval_iters=args.eval_iters,
+                     improve_expl=args.improve_expl,
+                     basename=basename + '_fold={}'.format(k),
+                     rng=rng)
         perfs.append(perf)
 
-    caipi.dump(basename + '.pickle', {'args': args, 'perfs': perfs})
+    dump(basename + '.pickle', {'args': args, 'perfs': perfs})
 
 
 def main():
