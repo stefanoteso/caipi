@@ -38,23 +38,22 @@ LEARNERS = {
 
 
 def _get_basename(args):
+    basename = '__'.join([args.problem, args.learner, args.strategy])
     fields = [
-        ('problem', args.problem),
-        ('learner', args.learner),
-        ('strategy', args.strategy),
-        ('n-folds', args.n_folds),
-        ('prop-known', args.prop_known),
-        ('prop-eval', args.prop_eval),
-        ('max-iters', args.max_iters),
-        ('start-expl-at', args.start_expl_at),
-        ('eval-iters', args.eval_iters),
-        ('improve-expl', args.improve_expl),
-        ('n-features', args.n_features),
-        ('n-samples', args.n_samples),
-        ('kernel-width', args.kernel_width),
-        ('seed', args.seed),
+        ('k', args.n_folds),
+        ('pk', args.prop_known),
+        ('pe', args.prop_eval),
+        ('T', args.max_iters),
+        ('e', args.eval_iters),
+        ('E', args.start_expl_at),
+        ('I', args.improve_expl),
+        ('F', args.n_features),
+        ('S', args.n_samples),
+        ('K', args.kernel_width),
+        ('R', args.lime_repeats),
+        ('s', args.seed),
     ]
-    basename = '__'.join([name + '=' + str(value) for name, value in fields])
+    basename += '__'.join([name + '=' + str(value) for name, value in fields])
     return join('results', basename)
 
 
@@ -62,8 +61,11 @@ def _subsample(problem, examples, prop, rng=None):
     rng = check_random_state(rng)
 
     classes = sorted(set(problem.y))
-    n_sampled = int(round(len(examples) * prop))
-    n_sampled_per_class = max(n_sampled // len(classes), 3)
+    if 0 <= prop <= 1:
+        n_sampled = int(round(len(examples) * prop))
+        n_sampled_per_class = max(n_sampled // len(classes), 3)
+    else:
+        n_sampled_per_class = max(int(prop), 3)
 
     sample = []
     for y in classes:
@@ -152,7 +154,7 @@ def eval_passive(problem, args, rng=None):
     print('w_{train+corr} :\n', train_corr_params)
 
 
-def _eval_interactive(args, problem, rng=None):
+def eval_interactive(problem, args, rng=None):
     """The main evaluation loop."""
 
     rng = check_random_state(args.seed)
@@ -174,21 +176,21 @@ def _eval_interactive(args, problem, rng=None):
 
         learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
 
-        perf = caipi(problem,
-                     learner,
-                     train_examples,
-                     known_examples,
-                     test_examples,
-                     eval_examples,
-                     max_iters=args.max_iters,
-                     start_expl_at=args.start_expl_at,
-                     eval_iters=args.eval_iters,
-                     improve_expl=args.improve_expl,
-                     basename=basename + '_fold={}'.format(k),
-                     rng=rng)
+        perf = caipi.caipi(problem,
+                           learner,
+                           train_examples,
+                           known_examples,
+                           test_examples,
+                           eval_examples,
+                           max_iters=args.max_iters,
+                           start_expl_at=args.start_expl_at,
+                           eval_iters=args.eval_iters,
+                           improve_expl=args.improve_expl,
+                           basename=basename + '_fold={}'.format(k),
+                           rng=rng)
         perfs.append(perf)
 
-    dump(basename + '.pickle', {'args': args, 'perfs': perfs})
+    caipi.dump(basename + '.pickle', {'args': args, 'perfs': perfs})
 
 
 def main():
@@ -232,17 +234,21 @@ def main():
                        help='Size of the LIME sampled dataset')
     group.add_argument('-K', '--kernel-width', type=float, default=0.75,
                        help='LIME kernel width')
+    group.add_argument('-R', '--lime-repeats', type=int, default=1,
+                       help='Number of times to re-run LIME')
     args = parser.parse_args()
 
     np.seterr(all='raise')
     np.set_printoptions(precision=3, linewidth=80)
+    np.random.seed(args.seed)
 
     rng = np.random.RandomState(args.seed)
 
     print('Creating problem...')
-    problem = PROBLEMS[args.problem](args.n_samples,
-                                     args.n_features,
-                                     args.kernel_width,
+    problem = PROBLEMS[args.problem](n_samples=args.n_samples,
+                                     n_features=args.n_features,
+                                     kernel_width=args.kernel_width,
+                                     lime_repeats=args.lime_repeats,
                                      rng=rng)
 
     if args.passive:

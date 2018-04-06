@@ -8,7 +8,7 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.model_selection import GridSearchCV, cross_val_score
 from sklearn.utils import check_random_state
 
-from .utils import densify
+from .utils import densify, vstack, hstack
 
 
 class SVMLearner:
@@ -196,6 +196,8 @@ def caipi(problem,
 
     X_test_tuples = {tuple(densify(problem.X[i]).ravel()) for i in test_examples}
 
+    learner.select_model(problem.X[known_examples],
+                         problem.y[known_examples])
     learner.fit(problem.X[known_examples],
                 problem.y[known_examples])
 
@@ -224,7 +226,6 @@ def caipi(problem,
             X_corr, y_corr = \
                 problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl,
                                           X_test_tuples)
-            raise NotImplementedError()
 
         learner.fit(vstack([X_corr, problem.X[known_examples]]),
                     hstack([y_corr, problem.y[known_examples]]))

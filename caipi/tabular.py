@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import matplotlib.pyplot as plt
 from os.path import join
@@ -13,16 +14,23 @@ from time import time
 from . import Problem, PipeStep, densify, vstack, hstack
 
 
+_FEAT_NAME_REGEX = re.compile('[0-4],[0-4]')
+
+
 class TabularProblem(Problem):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         self.y = kwargs.pop('y')
         self.Z = kwargs.pop('Z')
         self.class_names = kwargs.pop('class_names')
         self.z_names = kwargs.pop('z_names')
+        self.categorical_features = kwargs.pop('categorical_features',
+                                               list(range(self.Z.shape[1])))
+        self.discretize_features = kwargs.pop('discretize_features', False)
+        self.lime_repeats = kwargs.pop('lime_repeats', 1)
 
         self.X = np.array([self.z_to_x(z) for z in self.Z], dtype=np.float64)
 
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     def z_to_x(self, z):
         """Converts an interpretable instance to an instance."""
@@ -39,14 +47,37 @@ class TabularProblem(Problem):
     def query_label(self, i):
         return self.y[i]
 
+    @staticmethod
+    def _to_feat_name(disc_feat):
+        return _FEAT_NAME_REGEX.findall(disc_feat)[0]
+
+    @staticmethod
+    def _feat_to_bounds(feat):
+        EPS = 1e-13
+        if ' > ' in feat:                   # (lb, +infty)
+            name, lb = feat.split(' > ')
+            lb, ub = float(lb), np.inf
+        elif ' < ' in feat:                 # (lb, ub]
+            name, ub = feat.split(' <= ')
+            lb, name = name.split(' < ')
+            lb, ub = float(lb), float(ub)
+        elif ' <= ' in feat:                # (-infty, ub]
+            name, ub = feat.split(' <= ')
+            lb, ub = -np.inf, float(ub)
+        elif '=' in feat:                   # [lb, ub] ~ (lb - EPS, ub]
+            name, value = feat.split('=')
+            lb, ub = float(value) - EPS, float(value)
+        else:                               # no discretization
+            name, lb, ub = feat, -np.inf, np.inf
+        return name, lb, ub
+
     def explain(self, learner, known_examples, i, y_pred):
-        all_features = list(range(self.Z.shape[1]))
         lime = LimeTabularExplainer(self.Z[known_examples],
                                     class_names=self.class_names,
                                     feature_names=self.z_names,
                                     kernel_width=self.kernel_width,
-                                    categorical_features=all_features,
-                                    discretize_continuous=False,
+                                    categorical_features=self.categorical_features,
+                                    discretize_continuous=self.discretize_features,
                                     feature_selection='forward_selection',
                                     verbose=False)
 
@@ -54,21 +85,30 @@ class TabularProblem(Problem):
                                            dtype=np.float64))
         pipeline = make_pipeline(step, learner)
 
-        t = time()
-        # XXX set alpha to 1000 for TTT
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
+
         try:
-            explanation = lime.explain_instance(self.Z[i],
-                                                pipeline.predict_proba,
-                                                model_regressor=local_model,
-                                                num_samples=self.n_samples,
-                                                num_features=self.n_features,
-                                                distance_metric=self.metric)
-            print('LIME took', time() - t, 's, score =', explanation.score)
+            counts = defaultdict(int)
+            for r in range(self.lime_repeats):
+
+                t = time()
+                explanation = lime.explain_instance(self.Z[i],
+                                                    pipeline.predict_proba,
+                                                    model_regressor=local_model,
+                                                    num_samples=self.n_samples,
+                                                    num_features=self.n_features,
+                                                    distance_metric=self.metric)
+                print('  LIME {}/{} took {}s'.format(r + 1, self.lime_repeats,
+                                                     time() - t))
+
+                for feat, _ in explanation.as_list():
+                    counts[feat] += 1
+
+            return list(sorted(counts.items(), key=lambda fc: fc[-1]))[-self.n_features:]
         except FloatingPointError:
             # XXX sometimes the calibrator classifier CV throws this
-            explanation = None
-        return explanation
+            print('Warning: LIME failed, returning no explanation')
+            return None
 
     def _eval_expl(self, learner, known_examples, eval_examples,
                    t=None, basename=None):
@@ -81,13 +121,15 @@ class TabularProblem(Problem):
             true_y = self.y[i]
             pred_y = learner.predict(densify(self.X[i]))[0]
 
-            true_expl = self.z_to_expl(self.Z[i])
             pred_expl = self.explain(learner, known_examples, i, pred_y)
             if pred_expl is None:
                 print('Warning: skipping eval example')
                 return -1, -1, -1
-            pred_expl = [(feat, int(np.sign(coeff)))
-                         for feat, coeff in pred_expl.as_list()]
+
+            true_expl = {(feat.split('=')[0], np.sign(coeff)) for feat, coeff
+                         in self.z_to_expl(self.Z[i])}
+            pred_expl = {(self._feat_to_bounds(feat)[0], coeff) for feat, coeff
+                         in pred_expl}
 
             matches = set(true_expl).intersection(set(pred_expl))
             pr = len(matches) / len(pred_expl) if len(pred_expl) else 0.0
@@ -98,10 +140,10 @@ class TabularProblem(Problem):
             if basename is None:
                 continue
 
-            self.save_expl(basename + '_{}_{}.png'.format(i, t),
-                           i, pred_y, pred_expl)
             self.save_expl(basename + '_{}_true.png'.format(i),
                            i, true_y, true_expl)
+            self.save_expl(basename + '_{}_{}.png'.format(i, t),
+                           i, pred_y, pred_expl)
 
         return np.mean(perfs, axis=0)
 
@@ -124,7 +166,7 @@ _COORDS_LST = [[2, 0], [2, 2]]
 class ToyProblem(TabularProblem):
     """A toy problem about classifying 3x3 black and white images."""
 
-    def __init__(self, *args, rule='fst', **kwargs):
+    def __init__(self, rule='fst', **kwargs):
         if not rule in ('fst', 'lst'):
             raise ValueError('invalid rule "{}"'.format(rule))
 
@@ -139,8 +181,7 @@ class ToyProblem(TabularProblem):
                    for r, c in product(range(3), repeat=2)]
 
         self.rule = rule
-        super().__init__(*args,
-                         y=y[valid_examples],
+        super().__init__(y=y[valid_examples],
                          Z=Z[valid_examples],
                          class_names=['negative', 'positive'],
                          z_names=z_names,
@@ -181,7 +222,7 @@ class ToyProblem(TabularProblem):
 
         z = self.Z[i]
         true_feats = {feat.split('=')[0] for (feat, _) in self.z_to_expl(z)}
-        pred_feats = {feat.split('=')[0] for (feat, _) in pred_expl.as_list()}
+        pred_feats = {feat.split('=')[0] for (feat, _) in pred_expl}
 
         Z_new_corr = []
         for feat in pred_feats - true_feats:
@@ -234,7 +275,7 @@ _COLORS = [
 class ColorsProblem(TabularProblem):
     """Colors problem from the "Right for the Right Reasons" paper."""
 
-    def __init__(self, *args, rule=0, n_examples=1000, **kwargs):
+    def __init__(self, rule=0, n_examples=1000, **kwargs):
         if not rule in (0, 1):
             raise ValueError('invalid rule "{}"'.format(rule))
         self.rule = rule
@@ -253,12 +294,13 @@ class ColorsProblem(TabularProblem):
         z_names = ['{},{}'.format(r, c)
                    for r, c in product(range(5), repeat=2)]
 
-        super().__init__(*args,
-                         y=np.array([labels[i] for i in pi]),
+        super().__init__(y=np.array([labels[i] for i in pi]),
                          Z=np.array([self._image_to_z(images[i]) for i in pi]),
                          class_names=['negative', 'positive'],
                          z_names=z_names,
                          metric='hamming',
+                         discretize_features=True,
+                         categorical_features=[],
                          **kwargs)
 
     @staticmethod
@@ -308,31 +350,37 @@ class ColorsProblem(TabularProblem):
 
         return list(feat_to_coeff.items())
 
-    def _parse_feat(self, feat):
-        r = int(feat.split(',')[0])
-        c = int(feat.split(',')[-1].split('=')[0])
-        value = int(feat.split(',')[-1].split('=')[-1])
-        return r, c, value
-
     def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
         if pred_expl is None or pred_y != self.y[i]:
             return X_corr, y_corr
 
         z = self.Z[i]
-        true_feats = {feat.split('=')[0] for (feat, _) in self.z_to_expl(z)}
-        pred_feats = {feat.split('=')[0] for (feat, _) in pred_expl.as_list()}
+        true_feats = {feat for (feat, _) in self.z_to_expl(z)}
+        pred_feats = {feat for (feat, _) in pred_expl}
 
         ALL_VALUES = set(range(4))
 
+        print('corrections for:')
+        print(z.reshape((5, 5)))
         Z_new_corr = []
         for feat in pred_feats - true_feats:
-            r, c, _ = self._parse_feat(feat)
-            for other_value in ALL_VALUES - set([z[5*r+c]]):
+            feat, lb, ub = self._feat_to_bounds(feat)
+            r, c = feat.split(',')
+            r, c = int(r), int(c)
+            other_values = {value for value in ALL_VALUES if not (lb < value <= ub)}
+            print(other_values)
+            for value in other_values:
                 z_corr = np.array(z, copy=True)
-                z_corr[5*r+c] = other_value
-                if self.z_to_y(z_corr) == pred_y or tuple(z_corr) in X_test:
+                z_corr[5*r+c] = value
+                print(z_corr.reshape((5, 5)))
+                if self.z_to_y(z_corr) != pred_y:
+                    print('changes label...')
+                    continue
+                if tuple(z_corr) in X_test:
+                    print('in test set...')
                     continue
                 Z_new_corr.append(z_corr)
+        print('that`s it.')
 
         if not len(Z_new_corr):
             return X_corr, y_corr
@@ -355,8 +403,10 @@ class ColorsProblem(TabularProblem):
         z = z.reshape((5, 5))
         ax.imshow(image, interpolation='nearest')
         for feat, coeff in expl:
-            r, c, value = self._parse_feat(feat)
-            if z[r, c] == value:
+            feat, lb, ub = self._feat_to_bounds(feat)
+            r, c = feat.split(',')
+            r, c = int(r), int(c)
+            if lb < z[r, c] <= ub:
                 color = '#FFFFFF' if coeff > 0 else '#000000'
                 ax.add_patch(Circle((c, r), 0.35, color=color))
 
@@ -395,7 +445,7 @@ _SALIENT_CONFIGS = [
 class TTTProblem(TabularProblem):
     """Tic-tac-toe endgames."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         Z, y = [], []
         with open(join('data', 'tic-tac-toe.data'), 'rt') as fp:
             for line in map(str.strip, fp):
@@ -410,7 +460,7 @@ class TTTProblem(TabularProblem):
         for r, c in product(range(3), repeat=2):
             z_names.append('{r},{c}'.format(**locals()))
 
-        super().__init__(Z, y, class_names, z_names, *args, **kwargs)
+        super().__init__(Z, y, class_names, z_names, **kwargs)
 
     @staticmethod
     def get_config(z, triplet):
@@ -482,7 +532,7 @@ class TTTProblem(TabularProblem):
         board = self.boards[i]
         true_feats = [feat for (feat, coeff) in
                       self._board_to_expl(self.boards[i])]
-        pred_feats = [feat for (feat, coeff) in pred_z.as_list()]
+        pred_feats = [feat for (feat, coeff) in pred_z]
 
         alt_boards = []
         for feat in set(pred_feats) - set(true_feats):
