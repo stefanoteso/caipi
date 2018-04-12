@@ -86,13 +86,13 @@ class TabularProblem(Problem):
                                            dtype=np.float64))
         pipeline = make_pipeline(step, learner)
 
-        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
 
         try:
             counts = defaultdict(int)
             for r in range(self.lime_repeats):
 
                 t = time()
+                local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
                 explanation = lime.explain_instance(self.Z[i],
                                                     pipeline.predict_proba,
                                                     model_regressor=local_model,
