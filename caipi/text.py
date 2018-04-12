@@ -15,6 +15,22 @@ _TERM = blessings.Terminal()
 
 
 class TextProblem(Problem):
+    def __init__(self, **kwargs):
+        self.class_names = kwargs.pop('class_names')
+        self.y = kwargs.pop('y')
+        self.docs = kwargs.pop('docs')
+        self.processed_docs = kwargs.pop('processed_docs')
+        self.explanations = kwargs.pop('explanations')
+        self.lime_repeats = kwargs.pop('lime_repeats', 1)
+        super().__init__(**kwargs)
+
+        self.vectorizer = TfidfVectorizer(lowercase=False) \
+                              .fit(self.processed_docs)
+        self.X = self.vectorizer.transform(self.processed_docs)
+
+        self.explainable = {i for i in range(len(self.y))
+                            if len(self.explanations[i])}
+
     def explain(self, learner, known_examples, i, y_pred):
         explainer = LimeTextExplainer(class_names=self.class_names)
 
@@ -123,8 +139,9 @@ class TextProblem(Problem):
 
 
 class NewsgroupsProblem(TextProblem):
-    def __init__(self, *args, classes=None, min_words=10, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        classes = kwargs.pop('classes', None)
+        min_words = kwargs.pop('min_words', 10)
 
         path = join('data', '20newsgroups_{}_{}.pickle'.format(
                         '+'.join(sorted(classes)), min_words))
@@ -133,19 +150,16 @@ class NewsgroupsProblem(TextProblem):
         except:
             raise RuntimeError('Run the data preparation script first!')
 
-        self.class_names = classes
-        self.y = dataset.target
-        self.docs = dataset.data
-        self.processed_docs = dataset.processed_data
-        self.explanations = dataset.explanations
-
-        self.vectorizer = TfidfVectorizer(lowercase=False).fit(self.processed_docs)
-        self.X = self.vectorizer.transform(self.processed_docs)
+        super().__init__(class_names=classes,
+                         y=dataset.target,
+                         docs=dataset.data,
+                         processed_docs=dataset.processed_data,
+                         explanations=dataset.explanations,
+                         **kwargs)
 
 
 class ReviewsProblem(TextProblem):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, **kwargs):
 
         path = join('data', 'review_polarity_rationales.pickle')
         try:
@@ -153,11 +167,9 @@ class ReviewsProblem(TextProblem):
         except:
             raise RuntimeError('Run the data preparation script first!')
 
-        self.class_names = ['neg', 'pos']
-        self.y = dataset['y']
-        self.docs = self.processed_docs = dataset['docs']
-        self.explanations = dataset['explanations']
-
-        self.vectorizer = TfidfVectorizer(lowercase=False) \
-                              .fit(self.processed_docs)
-        self.X = self.vectorizer.transform(self.processed_docs)
+        super().__init__(class_names=['neg', 'pos'],
+                         y=dataset['y'],
+                         docs=dataset['docs'],
+                         processed_docs=dataset['docs'],
+                         explanations=dataset['explanations'],
+                         **kwargs)

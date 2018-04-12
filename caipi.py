@@ -167,6 +167,9 @@ def eval_passive(problem, args, rng=None):
     print('#train={} #test={} #eval={}'.format(
         len(train_examples), len(test_examples), len(eval_examples)))
 
+    print('  #explainable in train', len(set(train_examples) & problem.explainable))
+    print('  #explainable in eval', len(set(eval_examples) & problem.explainable))
+
     learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
     learner.select_model(problem.X[train_examples],
                          problem.y[train_examples])
