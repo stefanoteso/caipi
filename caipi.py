@@ -40,8 +40,8 @@ def _get_basename(args):
     basename = '__'.join([args.problem, args.learner, args.strategy])
     fields = [
         ('k', args.n_folds),
-        ('pk', args.prop_known),
-        ('pe', args.prop_eval),
+        ('p', args.prop_known),
+        ('P', args.prop_eval),
         ('T', args.max_iters),
         ('e', args.eval_iters),
         ('E', args.start_expl_at),
@@ -52,7 +52,8 @@ def _get_basename(args):
         ('R', args.lime_repeats),
         ('s', args.seed),
     ]
-    basename += '__'.join([name + '=' + str(value) for name, value in fields])
+    basename += '__' + '__'.join([name + '=' + str(value)
+                                  for name, value in fields])
     return join('results', basename)
 
 
