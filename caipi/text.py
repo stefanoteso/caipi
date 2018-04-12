@@ -1,6 +1,8 @@
 import numpy as np
-import time, re, blessings
+import re, blessings
+from time import time
 from os.path import join
+from collections import defaultdict
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
@@ -22,6 +24,7 @@ class TextProblem(Problem):
         self.processed_docs = kwargs.pop('processed_docs')
         self.explanations = kwargs.pop('explanations')
         self.lime_repeats = kwargs.pop('lime_repeats', 1)
+        self.correction_method = kwargs.pop('correction_method', 'singleton')
         super().__init__(**kwargs)
 
         self.vectorizer = TfidfVectorizer(lowercase=False) \
@@ -35,32 +38,57 @@ class TextProblem(Problem):
         explainer = LimeTextExplainer(class_names=self.class_names)
 
         pipeline = make_pipeline(self.vectorizer, learner)
-        local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
-        expl = explainer.explain_instance(self.processed_docs[i],
-                                          pipeline.predict_proba,
-                                          model_regressor=local_model,
-                                          num_features=self.n_features,
-                                          num_samples=self.n_samples)
-        return expl
+
+        counts = defaultdict(int)
+        for r in range(self.lime_repeats):
+
+            t = time()
+            local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
+            expl = explainer.explain_instance(self.processed_docs[i],
+                                              pipeline.predict_proba,
+                                              model_regressor=local_model,
+                                              num_features=self.n_features,
+                                              num_samples=self.n_samples)
+            print('  LIME {}/{} took {}s'.format(r + 1, self.lime_repeats,
+                                                 time() - t))
+
+            for word, coeff in expl.as_list():
+                counts[(word, int(np.sign(coeff)))] += 1
+
+        sorted_counts = sorted(counts.items(), key=lambda _: _[-1])
+        sorted_counts = list(sorted_counts)[-self.n_features:]
+        return [ws for ws, _ in sorted_counts]
 
     def query_label(self, i):
         return self.y[i]
 
     def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
-        if pred_expl is None:
+        if pred_expl is None or not i in self.explainable:
             return X_corr, y_corr
 
         true_words = {word for word, _ in self.explanations[i]}
-        if not len(true_words):
-            # No explanation known for this example
-            return X_corr, y_corr
-        pred_words = {word for word, _ in pred_expl.as_list()}
+        pred_words = {word for word, _ in pred_expl}
+        fp_words = pred_words - true_words
 
         words_in_doc = set(self.processed_docs[i].split())
 
-        corrected_docs = []
-        for word in pred_words - true_words:
-            corrected_docs.append(' '.join(words_in_doc - set([word])))
+        if self.correction_method == 'singleton':
+            corrected_docs = [
+                ' '.join(words_in_doc - fp_words)
+            ]
+        elif self.correction_method == 'words':
+            corrected_docs = []
+            for fp_word in fp_words:
+                corrected_docs.append(' '.join(words_in_doc - set([fp_word])))
+        elif self.correction_method == 'subsets':
+            fp_words = np.array(list(sorted(fp_words)), dtype=str)
+            print(fp_words)
+
+            corrected_docs = []
+            for mask in self.rng.randint(0, 2, size=(10, len(fp_words))):
+                print(mask)
+                print(fp_words[mask])
+                corrected_docs.append(' '.join(words_in_doc - set(fp_words[mask])))
 
         if not len(corrected_docs):
             return X_corr, y_corr
@@ -74,8 +102,8 @@ class TextProblem(Problem):
 
     @staticmethod
     def _highlight_words(text, expl):
-        for word, coeff in expl:
-            color = _TERM.green if coeff >= 0 else _TERM.red
+        for word, sign in expl:
+            color = _TERM.green if sign >= 0 else _TERM.red
             colored_word = color + word + _TERM.normal
             matches = list(re.compile(word).finditer(text))
             matches.reverse()
@@ -92,8 +120,8 @@ class TextProblem(Problem):
             fp.write(self._highlight_words(self.docs[i], expl))
             fp.write('\n' + 80 * '-' + '\n')
             fp.write('explanation:\n')
-            for word, coeff in expl:
-                fp.write('{:32s} : {:3.1f}\n'.format(word, coeff))
+            for word, sign in expl:
+                fp.write('{:32s} : {:3.1f}\n'.format(word, sign))
 
     def _eval_expl(self, learner, known_examples, eval_examples,
                    t=None, basename=None):
@@ -101,18 +129,22 @@ class TextProblem(Problem):
             return -1, -1, -1
 
         perfs = []
-        for i in eval_examples:
+        for i in set(eval_examples) & self.explainable:
             true_y = self.y[i]
             true_expl = self.explanations[i]
 
             pred_y = learner.predict(densify(self.X[i]))[0]
             pred_expl = self.explain(learner, known_examples, i, pred_y)
-            pred_expl = [(feat, int(np.sign(coeff)))
-                         for feat, coeff in pred_expl.as_list()]
 
-            matches = set(map(tuple, true_expl)).intersection(set(pred_expl))
-            pr = len(matches) / len(pred_expl) if len(pred_expl) else 0.0
-            rc = len(matches) / len(true_expl) if len(true_expl) else 0.0
+            # NOTE here we don't care if the coefficients are wrong, since
+            # those depend on whether the prediction is wrong
+
+            true_words = {word for word, _ in self.explanations[i]}
+            pred_words = {word for word, _ in pred_expl}
+
+            matches = true_words & pred_words
+            pr = len(matches) / len(pred_words) if len(pred_words) else 0.0
+            rc = len(matches) / len(true_words) if len(true_words) else 0.0
             f1 = 0.0 if pr + rc <= 0 else 2 * pr * rc / (pr + rc)
             perfs.append((pr, rc, f1))
 

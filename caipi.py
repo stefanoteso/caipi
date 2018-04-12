@@ -194,8 +194,9 @@ def eval_passive(problem, args, rng=None):
                      for i in test_examples}
 
     X_corr, y_corr = None, None
-    for j, i in enumerate(train_examples):
-        print('  correcting {:3d} / {:3d}'.format(j + 1, len(train_examples)))
+    expl_train_examples = set(train_examples) & problem.explainable
+    for j, i in enumerate(expl_train_examples):
+        print('  correcting {:3d} / {:3d}'.format(j + 1, len(expl_train_examples)))
         x = densify(problem.X[i])
         pred_y = learner.predict(x)[0]
         pred_expl = problem.explain(learner, train_examples, i, pred_y)
