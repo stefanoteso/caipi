@@ -29,7 +29,7 @@ class TabularProblem(Problem):
         self.lime_repeats = kwargs.pop('lime_repeats', 1)
 
         self.X = np.array([self.z_to_x(z) for z in self.Z], dtype=np.float64)
-        self.explainable = set(range(len(selfy)))
+        self.explainable = set(range(len(self.y)))
 
         super().__init__(**kwargs)
 
