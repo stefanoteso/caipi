@@ -93,19 +93,23 @@ class TabularProblem(Problem):
 
                 t = time()
                 local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
-                explanation = lime.explain_instance(self.Z[i],
-                                                    pipeline.predict_proba,
-                                                    model_regressor=local_model,
-                                                    num_samples=self.n_samples,
-                                                    num_features=self.n_features,
-                                                    distance_metric=self.metric)
+                expl = lime.explain_instance(self.Z[i],
+                                             pipeline.predict_proba,
+                                             model_regressor=local_model,
+                                             num_samples=self.n_samples,
+                                             num_features=self.n_features,
+                                             distance_metric=self.metric)
                 print('  LIME {}/{} took {}s'.format(r + 1, self.lime_repeats,
                                                      time() - t))
 
-                for feat, _ in explanation.as_list():
-                    counts[feat] += 1
+                for feat, coeff in expl.as_list():
+                    coeff = int(np.sign(coeff))
+                    counts[(feat, coeff)] += 1
 
-            return list(sorted(counts.items(), key=lambda fc: fc[-1]))[-self.n_features:]
+            sorted_counts = sorted(counts.items(), key=lambda _: _[-1])
+            sorted_counts = list(sorted_counts)[-self.n_features:]
+            return [fs for fs, _ in sorted_counts]
+
         except FloatingPointError:
             # XXX sometimes the calibrator classifier CV throws this
             print('Warning: LIME failed, returning no explanation')
