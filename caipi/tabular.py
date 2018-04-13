@@ -11,7 +11,7 @@ from lime.lime_tabular import LimeTabularExplainer
 from matplotlib.patches import Circle
 from time import time
 
-from . import Problem, PipeStep, densify, vstack, hstack
+from . import Problem, PipeStep, densify, vstack, hstack, setprfs
 
 
 _FEAT_NAME_REGEX = re.compile('[0-4],[0-4]')
@@ -124,23 +124,18 @@ class TabularProblem(Problem):
         perfs = []
         for i in eval_examples:
             true_y = self.y[i]
-            pred_y = learner.predict(densify(self.X[i]))[0]
+            true_expl = self.z_to_expl(self.Z[i])
 
+            pred_y = learner.predict(densify(self.X[i]))[0]
             pred_expl = self.explain(learner, known_examples, i, pred_y)
             if pred_expl is None:
                 print('Warning: skipping eval example')
                 return -1, -1, -1
 
-            true_expl = {(feat.split('=')[0], np.sign(coeff)) for feat, coeff
-                         in self.z_to_expl(self.Z[i])}
-            pred_expl = {(self._feat_to_bounds(feat)[0], coeff) for feat, coeff
-                         in pred_expl}
-
-            matches = set(true_expl).intersection(set(pred_expl))
-            pr = len(matches) / len(pred_expl) if len(pred_expl) else 0.0
-            rc = len(matches) / len(true_expl) if len(true_expl) else 0.0
-            f1 = 0.0 if pr + rc <= 0 else 2 * pr * rc / (pr + rc)
-            perfs.append((pr, rc, f1))
+            true_feats = {feat.split('=')[0] for feat, _ in true_expl}
+            pred_feats = {self._feat_to_bounds(feat)[0] for feat, _
+                          in pred_expl}
+            perfs.append(setprfs(true_feats, pred_feats))
 
             if basename is None:
                 continue
@@ -365,7 +360,6 @@ class ColorsProblem(TabularProblem):
 
         ALL_VALUES = set(range(4))
 
-        print('corrections for:')
         print(z.reshape((5, 5)))
         Z_new_corr = []
         for feat in pred_feats - true_feats:
@@ -379,13 +373,10 @@ class ColorsProblem(TabularProblem):
                 z_corr[5*r+c] = value
                 print(z_corr.reshape((5, 5)))
                 if self.z_to_y(z_corr) != pred_y:
-                    print('changes label...')
                     continue
                 if tuple(z_corr) in X_test:
-                    print('in test set...')
                     continue
                 Z_new_corr.append(z_corr)
-        print('that`s it.')
 
         if not len(Z_new_corr):
             return X_corr, y_corr
