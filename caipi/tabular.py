@@ -360,18 +360,15 @@ class ColorsProblem(TabularProblem):
 
         ALL_VALUES = set(range(4))
 
-        print(z.reshape((5, 5)))
         Z_new_corr = []
         for feat in pred_feats - true_feats:
             feat, lb, ub = self._feat_to_bounds(feat)
             r, c = feat.split(',')
             r, c = int(r), int(c)
             other_values = {value for value in ALL_VALUES if not (lb < value <= ub)}
-            print(other_values)
             for value in other_values:
                 z_corr = np.array(z, copy=True)
                 z_corr[5*r+c] = value
-                print(z_corr.reshape((5, 5)))
                 if self.z_to_y(z_corr) != pred_y:
                     continue
                 if tuple(z_corr) in X_test:
