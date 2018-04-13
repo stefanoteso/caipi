@@ -82,7 +82,6 @@ class TextProblem(Problem):
                 corrected_docs.append(' '.join(words_in_doc - set([fp_word])))
         elif self.correction_method == 'subsets':
             fp_words = np.array(list(sorted(fp_words)), dtype=str)
-            print(fp_words)
 
             corrected_docs = []
             for mask in self.rng.randint(0, 2, size=(10, len(fp_words))):
@@ -100,29 +99,6 @@ class TextProblem(Problem):
         y_corr = hstack([y_corr, y_new_corr])
         return X_corr, y_corr
 
-    @staticmethod
-    def _highlight_words(text, expl):
-        for word, sign in expl:
-            color = _TERM.green if sign >= 0 else _TERM.red
-            colored_word = color + word + _TERM.normal
-            matches = list(re.compile(word).finditer(text))
-            matches.reverse()
-            for match in matches:
-                start = match.start()
-                text = text[:start] + colored_word + text[start+len(word):]
-        return text
-
-    def save_expl(self, path, i, pred_y, expl):
-        with open(path, 'wt') as fp:
-            fp.write('true y: ' + self.class_names[self.y[i]] + '\n')
-            fp.write('pred y: ' + self.class_names[pred_y] + '\n')
-            fp.write(80 * '-' + '\n')
-            fp.write(self._highlight_words(self.docs[i], expl))
-            fp.write('\n' + 80 * '-' + '\n')
-            fp.write('explanation:\n')
-            for word, sign in expl:
-                fp.write('{:32s} : {:3.1f}\n'.format(word, sign))
-
     def _eval_expl(self, learner, known_examples, eval_examples,
                    t=None, basename=None):
         if eval_examples is None:
@@ -139,8 +115,9 @@ class TextProblem(Problem):
             # NOTE here we don't care if the coefficients are wrong, since
             # those depend on whether the prediction is wrong
 
-            true_words = {word for word, _ in self.explanations[i]}
-            pred_words = {word for word, _ in pred_expl}
+            true_words = {(word, np.sign(coeff)) for word, coeff in self.explanations[i]}
+            pred_words = {(word, np.sign(coeff) if true_y == pred_y else -np.sign(coeff))
+                          for word, coeff in pred_expl}
 
             matches = true_words & pred_words
             pr = len(matches) / len(pred_words) if len(pred_words) else 0.0
@@ -168,6 +145,29 @@ class TextProblem(Problem):
                                      eval_examples,
                                      t=t, basename=basename)
         return tuple(pred_perfs) + tuple(expl_perfs)
+
+    @staticmethod
+    def _highlight_words(text, expl):
+        for word, sign in expl:
+            color = _TERM.green if sign >= 0 else _TERM.red
+            colored_word = color + word + _TERM.normal
+            matches = list(re.compile(word).finditer(text))
+            matches.reverse()
+            for match in matches:
+                start = match.start()
+                text = text[:start] + colored_word + text[start+len(word):]
+        return text
+
+    def save_expl(self, path, i, pred_y, expl):
+        with open(path, 'wt') as fp:
+            fp.write('true y: ' + self.class_names[self.y[i]] + '\n')
+            fp.write('pred y: ' + self.class_names[pred_y] + '\n')
+            fp.write(80 * '-' + '\n')
+            fp.write(self._highlight_words(self.docs[i], expl))
+            fp.write('\n' + 80 * '-' + '\n')
+            fp.write('explanation:\n')
+            for word, sign in expl:
+                fp.write('{:32s} : {:3.1f}\n'.format(word, sign))
 
 
 class NewsgroupsProblem(TextProblem):
