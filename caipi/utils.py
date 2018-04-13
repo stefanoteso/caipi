@@ -41,6 +41,14 @@ vstack = lambda arrays: _stack(arrays, np.vstack, sp.sparse.vstack)
 hstack = lambda arrays: _stack(arrays, np.hstack, sp.sparse.hstack)
 
 
+def setprfs(true, pred):
+    matches = true & pred
+    pr = len(matches) / len(pred) if len(pred) else 0.0
+    rc = len(matches) / len(true) if len(true) else 0.0
+    f1 = 0.0 if pr + rc <= 0 else 2*pr*rc / (pr + rc)
+    return pr, rc, f1
+
+
 class PipeStep:
     def __init__(self, func):
         self.func = func
