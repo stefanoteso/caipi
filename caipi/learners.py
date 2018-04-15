@@ -63,6 +63,7 @@ class SVMLearner:
         return examples[np.argmin(diffs)]
 
     def select_model(self, X, y):
+        return
         if X.ndim != 2:
             X = self.problem.preproc(X)
         Cs = np.logspace(-3, 3, 7)

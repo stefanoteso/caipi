@@ -12,3 +12,6 @@ from .tabular import *
 
 from . import text
 from .text import *
+
+from . import image
+from .image import *

@@ -23,6 +23,7 @@ PROBLEMS = {
                               classes=['sci.electronics', 'sci.med'],
                               **kwargs),
     'reviews': ReviewsProblem,
+    'mnist': MNISTProblem,
 }
 
 
