@@ -41,17 +41,6 @@ class SVMLearner:
             'least-margin': self._select_least_margin,
         }[strategy]
 
-    def select_model(self, X, y):
-        Cs = np.logspace(-3, 3, 7)
-        grid = GridSearchCV(estimator=self._f_model,
-                            param_grid=dict(C=Cs),
-                            scoring='f1_weighted',
-                            n_jobs=-1)
-        grid.fit(X, y)
-        best_C = grid.best_estimator_.C
-        print('SVM: setting C to', best_C)
-        self._f_model.set_params(C=best_C)
-
     def _select_at_random(self, problem, examples):
         return self.rng.choice(sorted(examples))
 
@@ -73,7 +62,22 @@ class SVMLearner:
             diffs[i] = prob[sorted_indices[-1]] - prob[sorted_indices[-2]]
         return examples[np.argmin(diffs)]
 
+    def select_model(self, X, y):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
+        Cs = np.logspace(-3, 3, 7)
+        grid = GridSearchCV(estimator=self._f_model,
+                            param_grid=dict(C=Cs),
+                            scoring='f1_weighted',
+                            n_jobs=-1)
+        grid.fit(X, y)
+        best_C = grid.best_estimator_.C
+        print('SVM: setting C to', best_C)
+        self._f_model.set_params(C=best_C)
+
     def fit(self, X, y):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         self._f_model.fit(X, y)
         self._p_model.fit(X, y)
 
@@ -81,12 +85,18 @@ class SVMLearner:
         return np.array(self._f_model.coef_, copy=True)
 
     def decision_function(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._f_model.decision_function(X)
 
     def predict(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._f_model.predict(X)
 
     def predict_proba(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._p_model.predict_proba(X)
 
 
