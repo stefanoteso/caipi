@@ -9,8 +9,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from lime.lime_text import LimeTextExplainer
 
-from . import Problem
-from . import load, densify, vstack, hstack
+from . import Problem, load, densify, vstack, hstack
 
 
 _TERM = blessings.Terminal()
