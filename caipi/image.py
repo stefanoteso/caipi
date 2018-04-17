@@ -1,5 +1,6 @@
 import numpy as np
 import blessings
+import matplotlib.pyplot as plt
 from time import time
 from itertools import product
 from sklearn.datasets import fetch_mldata
@@ -164,9 +165,9 @@ class ImageProblem(Problem):
             if basename is None:
                 continue
 
-            self.save_expl(basename + '_{}_{}.txt'.format(i, t),
+            self.save_expl(basename + '_{}_{}.png'.format(i, t),
                            i, pred_y, pred_masks[pred_y])
-            self.save_expl(basename + '_{}_true.txt'.format(i),
+            self.save_expl(basename + '_{}_true.png'.format(i),
                            i, true_y, conf_mask)
 
         return np.mean(perfs, axis=0)
@@ -182,10 +183,33 @@ class ImageProblem(Problem):
                                      t=t, basename=basename)
         return tuple(pred_perfs) + tuple(expl_perfs)
 
-    def save_expl(self, path, i, pred_y, mask):
-        with open(path, 'wt') as fp:
-            fp.write(self._x_to_asciiart(self.X[i], mask=mask))
+    def save_expl(self, path, i, y, mask):
+        from skimage.color import rgb2hsv, hsv2rgb
 
+        fig, ax = plt.subplots(1, 1)
+        ax.set_aspect('equal')
+        ax.text(0.5, 1.05,
+                'true = {} | this = {}'.format(self.y[i], y),
+                horizontalalignment='center',
+                transform=ax.transAxes)
+
+        overlay = np.zeros((mask.shape[0], mask.shape[1], 3))
+        for r, c in product(range(mask.shape[0]), range(mask.shape[1])):
+            if mask[r, c] == 1:
+                overlay[r, c] = [1, 0, 0]
+            if mask[r, c] == 2:
+                overlay[r, c] = [0, 1, 0]
+        overlay = rgb2hsv(overlay)
+
+        masked_image = rgb2hsv(self.X[i])
+        masked_image[..., 0] = overlay[..., 0] # hue
+        masked_image[..., 1] = overlay[..., 1] * 0.6 # saturation
+        masked_image = hsv2rgb(masked_image)
+
+        ax.imshow(masked_image)
+
+        fig.savefig(path, bbox_inches=0, pad_inches=0)
+        plt.close(fig)
 
 
 class MNISTProblem(ImageProblem):
