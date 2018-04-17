@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.svm import LinearSVC
+from sklearn.svm import SVC
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -18,22 +19,30 @@ class SVMLearner:
         self.rng = check_random_state(rng)
 
         cv = StratifiedKFold(random_state=0)
-        if not sparse:
-            self._f_model = LinearSVC(C=C,
-                                      penalty='l2',
-                                      loss='hinge',
-                                      multi_class='ovr',
-                                      random_state=0)
+        if kernel != 'linear':
+            self._f_model = \
+            self._p_model = SVC(C=C,
+                                kernel=kernel,
+                                probability=True,
+                                decision_function_shape='ovr',
+                                random_state=0)
         else:
-            self._f_model = LinearSVC(C=C,
-                                      penalty='l1',
-                                      loss='squared_hinge',
-                                      dual=False,
-                                      multi_class='ovr',
-                                      random_state=0)
-        self._p_model = CalibratedClassifierCV(self._f_model,
-                                               method='sigmoid',
-                                               cv=cv)
+            if not sparse:
+                self._f_model = LinearSVC(C=C,
+                                          penalty='l2',
+                                          loss='hinge',
+                                          multi_class='ovr',
+                                          random_state=0)
+            else:
+                self._f_model = LinearSVC(C=C,
+                                          penalty='l1',
+                                          loss='squared_hinge',
+                                          dual=False,
+                                          multi_class='ovr',
+                                          random_state=0)
+            self._p_model = CalibratedClassifierCV(self._f_model,
+                                                   method='sigmoid',
+                                                   cv=cv)
 
         self.select_query = {
             'random': self._select_at_random,
@@ -82,7 +91,10 @@ class SVMLearner:
         self._p_model.fit(X, y)
 
     def get_params(self):
-        return np.array(self._f_model.coef_, copy=True)
+        try:
+            return np.array(self._f_model.coef_, copy=True)
+        except AttributeError:
+            return None
 
     def decision_function(self, X):
         if X.ndim != 2:
