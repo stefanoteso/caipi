@@ -1,10 +1,11 @@
 import numpy as np
 import blessings
 import matplotlib.pyplot as plt
+from matplotlib.cm import get_cmap
 from time import time
 from itertools import product
 from sklearn.datasets import fetch_mldata
-from skimage.color import gray2rgb, rgb2gray
+from skimage.color import gray2rgb, rgb2gray, hsv2rgb, rgb2hsv
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
@@ -67,7 +68,7 @@ class ImageProblem(Problem):
     def preproc(self, images):
         return np.array([rgb2gray(image).ravel() for image in images])
 
-    def explain(self, learner, known_examples, i, pred_y):
+    def explain(self, learner, known_examples, i, pred_y, return_segments=False):
         explainer = LimeImageExplainer(verbose=False)
 
         local_model = Ridge(alpha=1, fit_intercept=True, random_state=0)
@@ -95,6 +96,8 @@ class ImageProblem(Problem):
                                               hide_rest=False)
             masks.append(mask)
 
+        if return_segments:
+            return masks, expl.segments
         return masks
 
     def query_label(self, i):
@@ -120,7 +123,7 @@ class ImageProblem(Problem):
         fp_coords = conf_coords & pred_coords
 
         X_new_corr = []
-        for value in [0, 255]:
+        for value in np.arange(0, 255, 32):
             corr_image = np.array(image, copy=True)
             for r, c in fp_coords:
                 corr_image[r, c] = value
@@ -147,7 +150,9 @@ class ImageProblem(Problem):
             conf_mask = self._y_to_confounder(image, true_y)
             conf_mask[conf_mask == 128] = 2
 
-            pred_masks = self.explain(learner, known_examples, i, pred_y)
+            pred_masks, segments = \
+                self.explain(learner, known_examples, i, pred_y,
+                             return_segments=True)
 
             # Compute pr/rc/f1 between confounders and positive pixels, we
             # want confounders to be used less and less with iterations
@@ -167,6 +172,8 @@ class ImageProblem(Problem):
 
             self.save_expl(basename + '_{}_{}.png'.format(i, t),
                            i, pred_y, pred_masks[pred_y])
+            self.save_expl(basename + '_{}_{}_segments.png'.format(i, t),
+                           i, pred_y, pred_masks[pred_y], segments=segments)
             self.save_expl(basename + '_{}_true.png'.format(i),
                            i, true_y, conf_mask)
 
@@ -183,9 +190,7 @@ class ImageProblem(Problem):
                                      t=t, basename=basename)
         return tuple(pred_perfs) + tuple(expl_perfs)
 
-    def save_expl(self, path, i, y, mask):
-        from skimage.color import rgb2hsv, hsv2rgb
-
+    def save_expl(self, path, i, y, mask, segments=None):
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
         ax.text(0.5, 1.05,
@@ -193,18 +198,25 @@ class ImageProblem(Problem):
                 horizontalalignment='center',
                 transform=ax.transAxes)
 
-        overlay = np.zeros((mask.shape[0], mask.shape[1], 3))
-        for r, c in product(range(mask.shape[0]), range(mask.shape[1])):
-            if mask[r, c] == 1:
-                overlay[r, c] = [1, 0, 0]
-            if mask[r, c] == 2:
-                overlay[r, c] = [0, 1, 0]
-        overlay = rgb2hsv(overlay)
+        cmap = get_cmap('tab20')
 
-        masked_image = rgb2hsv(self.X[i])
-        masked_image[..., 0] = overlay[..., 0] # hue
-        masked_image[..., 1] = overlay[..., 1] * 0.6 # saturation
-        masked_image = hsv2rgb(masked_image)
+        if segments is None:
+            overlay = np.zeros((mask.shape[0], mask.shape[1], 3))
+            for r, c in product(range(mask.shape[0]), range(mask.shape[1])):
+                if mask[r, c] == 1:
+                    overlay[r, c] = [1, 0, 0]
+                if mask[r, c] == 2:
+                    overlay[r, c] = [0, 1, 0]
+            overlay = rgb2hsv(overlay)
+
+            masked_image = rgb2hsv(self.X[i])
+            masked_image[..., 0] = overlay[..., 0] # hue
+            masked_image[..., 1] = overlay[..., 1] * 0.6 # saturation
+            masked_image = hsv2rgb(masked_image)
+        else:
+            masked_image = np.zeros((mask.shape[0], mask.shape[1], 3))
+            for r, c in product(range(mask.shape[0]), range(mask.shape[1])):
+                masked_image[r, c] = cmap((segments[r, c] & 15) / 15)[:3]
 
         ax.imshow(masked_image)
 
