@@ -261,9 +261,8 @@ class ToyProblem(TabularProblem):
                 color = '#00FF00' if coeff > 0 else '#FF0000'
                 ax.add_patch(Circle((c, r), 0.4, color=color))
 
-        title = 'The correct answer is "{}". The machine answered "{}"'.format(
-                    self.class_names[self.y[i]],
-                    self.class_names[y])
+        title = 'The system says "{}".  The user says "{}"'.format(
+                    self.class_names[y], self.class_names[self.y[i]])
         ax.text(0.5, 1.05, title,
                 horizontalalignment='center',
                 transform=ax.transAxes,
