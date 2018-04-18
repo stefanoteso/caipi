@@ -8,7 +8,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import Ridge
 from sklearn.metrics import precision_recall_fscore_support as prfs
 from lime.lime_tabular import LimeTabularExplainer
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, RegularPolygon
 from time import time
 
 from . import Problem, PipeStep, densify, vstack, hstack, setprfs
@@ -248,6 +248,11 @@ class ToyProblem(TabularProblem):
 
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
+        ax.grid(True)
+        ax.set_xticks([-0.5, 0.5, 1.5])
+        ax.set_yticks([-0.5, 0.5, 1.5])
+        ax.xaxis.set_ticklabels([])
+        ax.yaxis.set_ticklabels([])
 
         ax.imshow(1 - z, interpolation='nearest', cmap=plt.get_cmap('binary'))
         for feat, coeff in expl:
@@ -256,11 +261,17 @@ class ToyProblem(TabularProblem):
                 color = '#00FF00' if coeff > 0 else '#FF0000'
                 ax.add_patch(Circle((c, r), 0.4, color=color))
 
-        ax.text(0.5, 1.05, 'true = {} | this = {}'.format(self.y[i], y),
+        title = 'The correct answer is "{}". The machine answered "{}"'.format(
+                    self.class_names[self.y[i]],
+                    self.class_names[y])
+        ax.text(0.5, 1.05, title,
                 horizontalalignment='center',
-                transform=ax.transAxes)
+                transform=ax.transAxes,
+                fontsize=12)
 
-        fig.savefig(path, bbox_inches=0, pad_inches=0)
+        fig.savefig(path, bbox_inches=0, pad_inches=0,
+                    facecolor='#BFBFBF',
+                    edgecolor='none')
         plt.close(fig)
 
 
