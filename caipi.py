@@ -274,7 +274,7 @@ def eval_interactive(problem, args, rng=None):
                      rng=rng)
         perfs.append(perf)
 
-    dump(basename + '.pickle', {'args': args, 'perfs': perfs})
+        dump(basename + '.pickle', {'args': args, 'perfs': perfs})
 
 
 def main():
