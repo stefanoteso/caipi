@@ -216,6 +216,11 @@ def caipi(problem,
         learner.fit(X_known, y_known)
 
         do_eval = t % eval_iters == 0
+        known_perf = problem.eval(learner,
+                            known_examples,
+                            known_examples,
+                            known_examples if do_eval else None,
+                            t=t, basename=basename)
         perf = problem.eval(learner,
                             known_examples,
                             test_examples,
@@ -223,6 +228,7 @@ def caipi(problem,
                             t=t, basename=basename)
         n_corrections = len(y_corr) if y_corr is not None else 0
         perf += (n_corrections,)
+        perfs.append(perf)
 
         # print('selecting model...')
         #if t >=5 and t % 5 == 0:
@@ -230,8 +236,7 @@ def caipi(problem,
         #                         hstack([y_corr, problem.y[known_examples]]))
 
         params = np.round(learner.get_params(), decimals=1)
-        print('{t:3d} : model = {params},  perfs = {perf}'.format(**locals()))
-        perfs.append(perf)
+        print('{t:3d} : model = {params},  perfs = {known_perf}, {perf}'.format(**locals()))
 
     return perfs
 
