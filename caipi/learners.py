@@ -127,7 +127,8 @@ class LRLearner:
         }[strategy]
 
     def select_model(self, X, y):
-
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         Cs = np.logspace(-3, 3, 7)
         grid = GridSearchCV(estimator=self._model,
                             param_grid=dict(C=Cs),
@@ -150,18 +151,26 @@ class LRLearner:
         return examples[np.argmin(margins)]
 
     def fit(self, X, y):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         self._model.fit(X, y)
 
     def get_params(self):
         return np.array(self._model.coef_, copy=True)
 
     def decision_function(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._model.decision_function(X)
 
     def predict(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._model.predict(X)
 
     def predict_proba(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._model.predict_proba(X)
 
 
@@ -178,6 +187,9 @@ class GPLearner:
             'most-variance': self._select_most_variance,
         }[strategy]
 
+    def select_model(self, X, y):
+        pass
+
     def _select_at_random(self, problem, examples):
         return self.rng.choice(sorted(examples))
 
@@ -187,11 +199,17 @@ class GPLearner:
         return examples[np.argmax(std)]
 
     def fit(self, X, y):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         self._r_model.fit(X, y)
         self._c_model.fit(X, y)
 
     def predict(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._c_model.predict(X)
 
     def predict_proba(self, X):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
         return self._c_model.predict_proba(X)
