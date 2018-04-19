@@ -1,6 +1,11 @@
 #!/bin/bash
 
-for S in least-confident; do
-    #./caipi.py toy svm $S -p 0.0001 -T 101 -e 1 -S 200 -F 3
-    ./caipi.py toy svm $S -p 0.0001 -T 101 -e 1 -S 200 -F 3 -E 0 -I
+for PROBLEM in toy-fst toy-lst; do
+    for L in lr svm l1svm; do
+        for S in least-confident; do
+            ./caipi.py $PROBLEM $L $S -p 0 -P 1 -k 3 -T 101 -e 5 -S 1000 -F 2 -E 0 2>/dev/null &
+            ./caipi.py $PROBLEM $L $S -p 0 -P 1 -k 3 -T 101 -e 5 -S 1000 -F 2 -E 0 -I 2>/dev/null &
+            wait
+        done
+    done
 done
