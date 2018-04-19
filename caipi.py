@@ -84,11 +84,11 @@ def eval_passive(problem, args, rng=None):
     rng = check_random_state(rng)
     basename = _get_basename(args)
 
-    folds = StratifiedShuffleSplit(n_splits=args.n_folds, random_state=rng) \
+    folds = StratifiedShuffleSplit(n_splits=args.n_folds, random_state=0) \
                 .split(problem.y, problem.y)
     train_examples, test_examples = list(folds)[0]
     eval_examples = _subsample(problem, test_examples,
-                               args.prop_eval, rng=rng)
+                               args.prop_eval, rng=0)
     print('#train={} #test={} #eval={}'.format(
         len(train_examples), len(test_examples), len(eval_examples)))
 
@@ -241,7 +241,7 @@ def eval_interactive(problem, args, rng=None):
     rng = check_random_state(args.seed)
     basename = _get_basename(args)
 
-    folds = StratifiedKFold(n_splits=args.n_folds, random_state=rng) \
+    folds = StratifiedKFold(n_splits=args.n_folds, random_state=0) \
                 .split(problem.y, problem.y)
 
     perfs = []
@@ -250,10 +250,10 @@ def eval_interactive(problem, args, rng=None):
 
         train_examples = list(train_examples)
         known_examples = _subsample(problem, train_examples,
-                                    args.prop_known, rng=rng)
+                                    args.prop_known, rng=0)
         test_examples = list(test_examples)
         eval_examples = _subsample(problem, test_examples,
-                                   args.prop_eval, rng=rng)
+                                   args.prop_eval, rng=0)
 
         print('  #explainable in train', len(set(train_examples) & problem.explainable))
         print('  #explainable in eval', len(set(eval_examples) & problem.explainable))
