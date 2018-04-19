@@ -26,21 +26,25 @@ def get_style(args):
     else:
         label += ' (NO EI)'
 
-    color = {
-        ('svm', 'random'): Tango.RED,
-        ('svm', 'least-confident'): Tango.ORANGE,
-        ('svm', 'least-margin'): Tango.YELLOW,
-        ('lr', 'random'): Tango.BLACK,
-        ('lr', 'least-confident'): Tango.GREEN,
-        ('gp', 'random'): Tango.BLUE,
-        ('gp', 'most-variance'): Tango.VIOLET,
-    }[args.learner, args.strategy]
+    base_color = {
+        'svm': Tango.RED,
+        'l1svm': Tango.VIOLET,
+        'lr': Tango.GREEN,
+        'gp': Tango.BLUE,
+    }[args.learner]
+
+    shade = {
+        'random': 0,
+        'least-confident': 1,
+        'most-variance': 1,
+        'least-margin': 2,
+    }[args.strategy]
+    color = base_color[shade]
 
     style, marker = {
         True: ('-', 's'),
         False: ('-.', '*'),
     }[args.improve_expl]
-    color = color[0 if args.improve_expl else -1]
 
     return label, color, style, marker
 
