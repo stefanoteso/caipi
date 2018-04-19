@@ -47,6 +47,7 @@ def get_style(args):
 
 def draw(args):
     plt.style.use('ggplot')
+    np.set_printoptions(precision=2, linewidth=80, threshold=np.nan)
 
     pickle_data, pickle_args = [], []
     for path in args.pickles:
@@ -63,6 +64,9 @@ def draw(args):
     ]
 
     for i_measure in range(perfs.shape[-1]):
+
+        print(TO_TITLE[i_measure])
+        print(perfs[:, :, :, i_measure])
 
         fig, ax = plt.subplots(1, 1)
         ax.set_title(TO_TITLE[i_measure])
