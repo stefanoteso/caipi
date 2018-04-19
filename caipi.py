@@ -178,7 +178,8 @@ def caipi(problem,
           len(train_examples), len(known_examples),
           len(test_examples), len(eval_examples)))
 
-    X_test_tuples = {tuple(densify(problem.X[i]).ravel()) for i in test_examples}
+    X_test_tuples = {tuple(densify(problem.X[i]).ravel())
+                     for i in test_examples}
 
     learner.select_model(problem.X[known_examples],
                          problem.y[known_examples])
