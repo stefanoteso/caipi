@@ -217,7 +217,8 @@ class ToyProblem(TabularProblem):
         return r, c, value
 
     def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
-        if pred_expl is None or pred_y != self.y[i]:
+        true_y = self.y[i]
+        if pred_expl is None or pred_y != true_y:
             return X_corr, y_corr
 
         z = self.Z[i]
@@ -229,7 +230,7 @@ class ToyProblem(TabularProblem):
             r, c, _ = self._parse_feat(feat)
             z_corr = np.array(z, copy=True)
             z_corr[3*r+c] = 1 - z_corr[3*r+c]
-            if self.z_to_y(z_corr) != pred_y or tuple(z_corr) in X_test:
+            if self.z_to_y(z_corr) != true_y or tuple(z_corr) in X_test:
                 continue
             Z_new_corr.append(z_corr)
 
@@ -237,7 +238,7 @@ class ToyProblem(TabularProblem):
             return X_corr, y_corr
 
         X_new_corr = np.array(Z_new_corr, dtype=np.float64)
-        y_new_corr = np.array([pred_y for _ in Z_new_corr], dtype=np.int8)
+        y_new_corr = np.array([true_y for _ in Z_new_corr], dtype=np.int8)
 
         X_corr = vstack([X_corr, X_new_corr])
         y_corr = hstack([y_corr, y_new_corr])
