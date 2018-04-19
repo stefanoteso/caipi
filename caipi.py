@@ -211,8 +211,9 @@ def caipi(problem,
                 problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl,
                                           X_test_tuples)
 
-        learner.fit(vstack([X_corr, problem.X[known_examples]]),
-                    hstack([y_corr, problem.y[known_examples]]))
+        X_known = vstack([X_corr, problem.X[known_examples]])
+        y_known = hstack([y_corr, problem.y[known_examples]])
+        learner.fit(X_known, y_known)
 
         do_eval = t % eval_iters == 0
         perf = problem.eval(learner,
