@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mojito import load
+from caipi import load
 
 
 class Tango:
