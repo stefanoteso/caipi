@@ -164,7 +164,30 @@ _COORDS_LST = [[2, 0], [2, 2]]
 
 
 class ToyProblem(TabularProblem):
-    """A toy problem about classifying 3x3 black and white images."""
+    """A toy problem about classifying 3x3 black and white images.
+
+    NOTE: some folds can be very unluky, for instance when the train corner
+    patterns look like this:
+
+        {(0.0, 0.0, 0.0, 1.0)
+         (1.0, 1.0, 1.0, 1.0),
+         (0.0, 1.0, 0.0, 0.0),
+         (0.0, 0.0, 1.0, 0.0),
+         (0.0, 0.0, 0.0, 0.0),
+         (0.0, 1.0, 1.0, 0.0),
+         (0.0, 1.0, 0.0, 1.0)}
+
+    while the test corner patterns look like this:
+
+        {(1.0, 0.0, 1.0, 0.0),
+         (1.0, 1.0, 1.0, 1.0),
+         (1.0, 0.0, 0.0, 0.0),
+         (1.0, 0.0, 0.0, 1.0)}
+
+    In this case, the train can be classified correctly by using the first
+    pixel alone, while the test is predicted as all positive (recall 1, but
+    very low precision).  This can actually happen.
+    """
 
     def __init__(self, rule='fst', **kwargs):
         if not rule in ('fst', 'lst'):
