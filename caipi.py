@@ -268,7 +268,10 @@ def eval_interactive(problem, args, rng=None):
 
     perfs = []
     for k, (train_examples, test_examples) in enumerate(folds):
+        print()
+        print(80 * '=')
         print('Running fold {}/{}'.format(k + 1, args.n_folds))
+        print(80 * '=')
 
         train_examples = list(train_examples)
         known_examples = _subsample(problem, train_examples,
