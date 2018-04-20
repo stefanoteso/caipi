@@ -177,9 +177,24 @@ def caipi(problem,
           max_iters,
           len(train_examples), len(known_examples),
           len(test_examples), len(eval_examples)))
+    print('  #explainable in train', len(set(train_examples) & problem.explainable))
+    print('  #explainable in eval', len(set(eval_examples) & problem.explainable))
 
     X_test_tuples = {tuple(densify(problem.X[i]).ravel())
                      for i in test_examples}
+
+    learner.select_model(problem.X[train_examples],
+                         problem.y[train_examples])
+    learner.fit(problem.X[train_examples],
+                problem.y[train_examples])
+    perf = problem.eval(learner,
+                        train_examples,
+                        test_examples,
+                        eval_examples,
+                        t='train',
+                        basename=basename)
+    params = np.round(learner.get_params(), decimals=1)
+    print('train model = {params}, perfs = {perf}'.format(**locals()))
 
     learner.select_model(problem.X[known_examples],
                          problem.y[known_examples])
@@ -261,9 +276,6 @@ def eval_interactive(problem, args, rng=None):
         test_examples = list(test_examples)
         eval_examples = _subsample(problem, test_examples,
                                    args.prop_eval, rng=0)
-
-        print('  #explainable in train', len(set(train_examples) & problem.explainable))
-        print('  #explainable in eval', len(set(eval_examples) & problem.explainable))
 
         learner = LEARNERS[args.learner](problem, args.strategy, rng=0)
 
