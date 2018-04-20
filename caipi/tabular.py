@@ -151,7 +151,7 @@ class TabularProblem(Problem):
              t=None, basename=None):
         pred_perfs = prfs(self.y[test_examples],
                           learner.predict(self.X[test_examples]),
-                          average='weighted')[:3]
+                          average='binary')[:3]
         expl_perfs = self._eval_expl(learner,
                                      known_examples,
                                      eval_examples,
