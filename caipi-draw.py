@@ -35,9 +35,9 @@ def get_style(args):
 
     shade = {
         'random': 0,
-        'least-confident': 1,
-        'most-variance': 1,
-        'least-margin': 2,
+        'least-confident': 2,
+        'most-variance': 2,
+        'least-margin': 1,
     }[args.strategy]
     color = base_color[shade]
 
@@ -58,7 +58,9 @@ def draw(args):
         data = load(path)
         pickle_data.append(data['perfs'])
         pickle_args.append(data['args'])
-    perfs = np.array(pickle_data)
+
+    min_folds = min(list(len(datum) for datum in pickle_data))
+    perfs = np.array([datum[:min_folds] for datum in pickle_data])
 
     # traces has shape: [n_pickles, n_folds, n_iters, n_measures]
     TO_TITLE = [
