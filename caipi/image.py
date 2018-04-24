@@ -87,7 +87,7 @@ class ImageProblem(Problem):
                                           model_regressor=local_model,
                                           top_labels=len(self.class_names),
                                           num_samples=self.n_samples,
-                                          hide_color=0)
+                                          hide_color=False)
 
         masks = []
         for target_y in range(len(self.class_names)):
@@ -105,9 +105,16 @@ class ImageProblem(Problem):
     def query_label(self, i):
         return self.y[i]
 
-    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
+    @staticmethod
+    def _extract_coords(image, mask):
+        return {(r, c)
+                for r in range(image.shape[0])
+                for c in range(image.shape[1])
+                if mask[r, c] != 0}
+
+    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_masks, X_test):
         true_y = self.y[i]
-        if pred_expl is None or \
+        if pred_masks is None or \
            pred_y != true_y or \
            not i in self.explainable:
             return X_corr, y_corr
@@ -116,14 +123,8 @@ class ImageProblem(Problem):
         conf_mask = self._y_to_confounder(image, self.y[i])
         conf_mask[conf_mask == 128] = 2
 
-        conf_coords = {(r, c)
-                       for r in range(image.shape[0])
-                       for c in range(image.shape[1])
-                       if conf_mask[r,c] != 0}
-        pred_coords = {(r, c)
-                       for r in range(image.shape[0])
-                       for c in range(image.shape[1])
-                       if pred_expl[pred_y][r, c] != 0}
+        conf_coords = self._extract_coords(image, conf_mask)
+        pred_coords = self._extract_coords(image, pred_masks[pred_y])
         fp_coords = conf_coords & pred_coords
 
         X_new_corr = []
@@ -158,18 +159,10 @@ class ImageProblem(Problem):
                 self.explain(learner, known_examples, i, pred_y,
                              return_segments=True)
 
-            # Compute pr/rc/f1 between confounders and positive pixels, we
-            # want confounders to be used less and less with iterations
-            conf_coords = {(r, c)
-                           for r in range(image.shape[0])
-                           for c in range(image.shape[1])
-                           if conf_mask[r, c] != 0}
-            pred_coords = {(r, c)
-                           for r in range(image.shape[0])
-                           for c in range(image.shape[1])
-                           if pred_masks[pred_y][r, c] != 0}
-
-            perfs.append(setprfs(conf_coords, pred_coords))
+            # Compute confounder recall
+            conf_coords = self._extract_coords(image, conf_mask)
+            pred_coords = self._extract_coords(image, pred_masks[pred_y])
+            perfs.append(len(conf_coords & pred_coords) / len(conf_coords))
 
             if basename is None:
                 continue
@@ -181,7 +174,7 @@ class ImageProblem(Problem):
             self.save_expl(basename + '_{}_true.png'.format(i),
                            i, true_y, conf_mask)
 
-        return np.mean(perfs, axis=0)
+        return np.mean(perfs, axis=0),
 
     def eval(self, learner, known_examples, test_examples, eval_examples,
              t=None, basename=None):
