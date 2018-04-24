@@ -1,6 +1,8 @@
 import numpy as np
 import blessings
 import matplotlib.pyplot as plt
+import gzip
+from os.path import join
 from matplotlib.cm import get_cmap
 from time import time
 from itertools import product
@@ -104,8 +106,10 @@ class ImageProblem(Problem):
         return self.y[i]
 
     def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
-        # NOTE we provide corrections regardless of the predicted label
-        if pred_expl is None or not i in self.explainable:
+        true_y = self.y[i]
+        if pred_expl is None or \
+           pred_y != true_y or \
+           not i in self.explainable:
             return X_corr, y_corr
 
         image = self.images[i]
@@ -123,7 +127,7 @@ class ImageProblem(Problem):
         fp_coords = conf_coords & pred_coords
 
         X_new_corr = []
-        for value in np.arange(0, 255, 32):
+        for value in np.arange(0, 255, 8):
             corr_image = np.array(image, copy=True)
             for r, c in fp_coords:
                 corr_image[r, c] = value
@@ -224,19 +228,50 @@ class ImageProblem(Problem):
         plt.close(fig)
 
 
+def _load_mnist(path, kind='train'):
+    """Load MNIST data from `path`"""
+    labels_path = join(path, '{}-labels-idx1-ubyte.gz'.format(kind))
+    with gzip.open(labels_path, 'rb') as fp:
+        labels = np.frombuffer(fp.read(), dtype=np.uint8, offset=8)
+
+    images_path = join(path, '{}-images-idx3-ubyte.gz'.format(kind))
+    with gzip.open(images_path, 'rb') as fp:
+        images = np.frombuffer(fp.read(), dtype=np.uint8, offset=16)
+
+    return images.reshape(len(labels), 28, 28), labels
+
+
 class MNISTProblem(ImageProblem):
     def __init__(self, n_examples=100, **kwargs):
-        mnist = fetch_mldata('MNIST original')
-
-        images = mnist.data.reshape((-1, 28, 28))
-        y = mnist.target.astype(np.uint8)
+        path = join('data', 'mnist')
+        tr_images, tr_labels = _load_mnist(path, kind='train')
+        ts_images, ts_labels = _load_mnist(path, kind='t10k')
+        images = np.vstack((tr_images, ts_images))
+        labels = np.hstack((tr_labels, ts_labels))
 
         if n_examples is not None:
             rng = check_random_state(kwargs.get('rng', None))
-            perm = rng.permutation(len(y))[:n_examples]
-            images, y = images[perm], y[perm]
+            perm = rng.permutation(len(labels))[:n_examples]
+            images, labels = images[perm], labels[perm]
 
-        super().__init__(images=images,
-                         y=y,
+        super().__init__(images=images, y=labels,
+                         class_names=list(map(str, range(10))),
+                         **kwargs)
+
+
+class FashionProblem(ImageProblem):
+    def __init__(self, n_examples=100, **kwargs):
+        path = join('data', 'fashion')
+        tr_images, tr_labels = _load_mnist(path, kind='train')
+        ts_images, ts_labels = _load_mnist(path, kind='t10k')
+        images = np.vstack((tr_images, ts_images))
+        labels = np.hstack((tr_labels, ts_labels))
+
+        if n_examples is not None:
+            rng = check_random_state(kwargs.get('rng', None))
+            perm = rng.permutation(len(labels))[:n_examples]
+            images, labels = images[perm], labels[perm]
+
+        super().__init__(images=images, y=labels,
                          class_names=list(map(str, range(10))),
                          **kwargs)
