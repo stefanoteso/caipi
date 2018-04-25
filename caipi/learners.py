@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.model_selection import StratifiedKFold
-from sklearn.model_selection import GridSearchCV, cross_val_score
+from sklearn.model_selection import GridSearchCV
 from sklearn.utils import check_random_state
 
 from .utils import densify, vstack, hstack
@@ -88,7 +88,13 @@ class SVMLearner:
         if X.ndim != 2:
             X = self.problem.preproc(X)
         self._f_model.fit(X, y)
-        self._p_model.fit(X, y)
+        if self._f_model is not self._p_model:
+            self._p_model.fit(X, y)
+
+    def score(self, X, y):
+        if X.ndim != 2:
+            X = self.problem.preproc(X)
+        return self._f_model.score(X, y)
 
     def get_params(self):
         try:
