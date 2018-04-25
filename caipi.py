@@ -159,6 +159,12 @@ def eval_passive(problem, args, rng=None):
     print('w_corr         :\n', corr_params)
     print('w_{train+corr} :\n', train_corr_params)
 
+    dump(basename + '_passive_models.pickle', {
+            'w_train': train_params,
+            'w_corr': corr_params,
+            'w_both': train_corr_params
+        })
+
 
 def caipi(problem,
           learner,
@@ -346,7 +352,7 @@ def main():
     args = parser.parse_args()
 
     np.seterr(all='raise')
-    np.set_printoptions(precision=3, linewidth=80)
+    np.set_printoptions(precision=3, linewidth=80, threshold=np.nan)
     np.random.seed(args.seed)
 
     rng = np.random.RandomState(args.seed)
