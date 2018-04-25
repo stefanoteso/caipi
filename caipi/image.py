@@ -15,7 +15,7 @@ from sklearn.utils import check_random_state
 from lime.lime_image import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
 
-from . import Problem, PipeStep, densify, setprfs, vstack, hstack
+from . import Problem, PipeStep, densify, vstack, hstack
 
 
 _TERM = blessings.Terminal()
@@ -41,10 +41,10 @@ class ImageProblem(Problem):
         return np.array(noisy_images, dtype=np.uint8)
 
     def _y_to_confounder(self, image, label):
-        dy = image.shape[-1] // len(self.class_names)
-        xs, ys = range(label * dy, label * dy + 2), range(dy)
+        dd = image.shape[-1] // len(self.class_names) // 2
+        ys, xs = range(label * dd, (label + 1) * dd), range(dd)
         mask = np.zeros_like(image)
-        mask[np.ix_(xs, ys)] = 128
+        mask[np.ix_(ys, xs)] = 128
         return mask
 
     def _x_to_asciiart(self, x, mask=None, segments=None):
@@ -77,8 +77,8 @@ class ImageProblem(Problem):
         # NOTE we *oversegment* the image on purpose!
         segmenter = SegmentationAlgorithm('quickshift',
                                           kernel_size=1,
-                                          max_dist=10,
-                                          ratio=0.2,
+                                          max_dist=4,
+                                          ratio=0.1,
                                           sigma=0,
                                           random_seed=0)
         expl = explainer.explain_instance(self.X[i],
@@ -87,6 +87,8 @@ class ImageProblem(Problem):
                                           model_regressor=local_model,
                                           top_labels=len(self.class_names),
                                           num_samples=self.n_samples,
+                                          num_features=self.n_features,
+                                          batch_size=1,
                                           hide_color=False)
 
         masks = []
@@ -128,7 +130,7 @@ class ImageProblem(Problem):
         fp_coords = conf_coords & pred_coords
 
         X_new_corr = []
-        for value in np.arange(0, 255, 8):
+        for value in range(0, 255, 16):
             corr_image = np.array(image, copy=True)
             for r, c in fp_coords:
                 corr_image[r, c] = value
@@ -144,7 +146,7 @@ class ImageProblem(Problem):
     def _eval_expl(self, learner, known_examples, eval_examples,
                    t=None, basename=None):
         if eval_examples is None:
-            return -1, -1, -1
+            return -1,
 
         perfs = []
         for i in set(eval_examples) & self.explainable:
@@ -167,27 +169,26 @@ class ImageProblem(Problem):
             if basename is None:
                 continue
 
-            self.save_expl(basename + '_{}_{}.png'.format(i, t),
-                           i, pred_y, pred_masks[pred_y])
-            self.save_expl(basename + '_{}_{}_segments.png'.format(i, t),
-                           i, pred_y, pred_masks[pred_y], segments=segments)
             self.save_expl(basename + '_{}_true.png'.format(i),
-                           i, true_y, conf_mask)
+                           i, true_y, mask=conf_mask)
+            self.save_expl(basename + '_{}_{}_expl.png'.format(i, t),
+                           i, pred_y, mask=pred_masks[pred_y])
+            self.save_expl(basename + '_{}_{}_segments.png'.format(i, t),
+                           i, pred_y, segments=segments)
 
         return np.mean(perfs, axis=0),
 
     def eval(self, learner, known_examples, test_examples, eval_examples,
              t=None, basename=None):
-        pred_perfs = prfs(self.y[test_examples],
-                          learner.predict(self.X[test_examples]),
-                          average='weighted')[:3]
+        pred_perfs = learner.score(self.X[test_examples],
+                                   self.y[test_examples]),
         expl_perfs = self._eval_expl(learner,
                                      known_examples,
                                      eval_examples,
                                      t=t, basename=basename)
         return tuple(pred_perfs) + tuple(expl_perfs)
 
-    def save_expl(self, path, i, y, mask, segments=None):
+    def save_expl(self, path, i, y, mask=None, segments=None):
         fig, ax = plt.subplots(1, 1)
         ax.set_aspect('equal')
         ax.text(0.5, 1.05,
@@ -197,25 +198,18 @@ class ImageProblem(Problem):
 
         cmap = get_cmap('tab20')
 
-        if segments is None:
-            overlay = np.zeros((mask.shape[0], mask.shape[1], 3))
-            for r, c in product(range(mask.shape[0]), range(mask.shape[1])):
-                if mask[r, c] == 1:
-                    overlay[r, c] = [1, 0, 0]
-                if mask[r, c] == 2:
-                    overlay[r, c] = [0, 1, 0]
-            overlay = rgb2hsv(overlay)
-
-            masked_image = rgb2hsv(self.X[i])
-            masked_image[..., 0] = overlay[..., 0] # hue
-            masked_image[..., 1] = overlay[..., 1] * 0.6 # saturation
-            masked_image = hsv2rgb(masked_image)
+        r, c = self.images[i].shape
+        if mask is not None:
+            image = np.zeros((r, c, 3))
+            for r, c in product(range(r), range(c)):
+                image[r, c] = cmap((mask[r, c] & 3) / 3)[:3]
+        elif segments is not None:
+            image = np.zeros((r, c, 3))
+            for r, c in product(range(r), range(c)):
+                image[r, c] = cmap((segments[r, c] & 15) / 15)[:3]
         else:
-            masked_image = np.zeros((mask.shape[0], mask.shape[1], 3))
-            for r, c in product(range(mask.shape[0]), range(mask.shape[1])):
-                masked_image[r, c] = cmap((segments[r, c] & 15) / 15)[:3]
-
-        ax.imshow(masked_image)
+            image = self.X[i]
+        ax.imshow(image)
 
         fig.savefig(path, bbox_inches=0, pad_inches=0)
         plt.close(fig)
@@ -235,7 +229,7 @@ def _load_mnist(path, kind='train'):
 
 
 class MNISTProblem(ImageProblem):
-    def __init__(self, n_examples=100, **kwargs):
+    def __init__(self, n_examples=None, **kwargs):
         path = join('data', 'mnist')
         tr_images, tr_labels = _load_mnist(path, kind='train')
         ts_images, ts_labels = _load_mnist(path, kind='t10k')
@@ -253,7 +247,7 @@ class MNISTProblem(ImageProblem):
 
 
 class FashionProblem(ImageProblem):
-    def __init__(self, n_examples=100, **kwargs):
+    def __init__(self, n_examples=None, **kwargs):
         path = join('data', 'fashion')
         tr_images, tr_labels = _load_mnist(path, kind='train')
         ts_images, ts_labels = _load_mnist(path, kind='t10k')
