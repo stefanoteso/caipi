@@ -131,7 +131,7 @@ def eval_passive(problem, args, rng=None):
     if X_corr is None:
         print('no corrections were obtained')
         return
-    print(X_corr.shape[0], 'corrections obtianed')
+    print(X_corr.shape[0], 'corrections obtained')
 
     print('Computing corr performance...')
     corr_params = None
