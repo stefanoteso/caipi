@@ -24,6 +24,7 @@ PROBLEMS = {
                               **kwargs),
     'reviews': ReviewsProblem,
     'mnist': MNISTProblem,
+    'fashion': FashionProblem,
 }
 
 
