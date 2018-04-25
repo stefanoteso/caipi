@@ -208,7 +208,7 @@ def caipi(problem,
     learner.fit(problem.X[known_examples],
                 problem.y[known_examples])
 
-    perfs = []
+    perfs, params = [], []
     X_corr, y_corr = None, None
     for t in range(max_iters):
 
@@ -237,6 +237,7 @@ def caipi(problem,
         X_known = vstack([X_corr, problem.X[known_examples]])
         y_known = hstack([y_corr, problem.y[known_examples]])
         learner.fit(X_known, y_known)
+        params.append(learner.get_params())
 
         do_eval = t % eval_iters == 0
         known_perf = problem.eval(learner,
@@ -261,7 +262,7 @@ def caipi(problem,
         params = np.round(learner.get_params(), decimals=1)
         print('{t:3d} : model = {params},  perfs = {known_perf}, {perf}'.format(**locals()))
 
-    return perfs
+    return perfs, params
 
 
 def eval_interactive(problem, args, rng=None):
@@ -304,6 +305,7 @@ def eval_interactive(problem, args, rng=None):
         perfs.append(perf)
 
         dump(basename + '.pickle', {'args': args, 'perfs': perfs})
+        dump(basename + '-params.pickle', params)
 
 
 def main():
