@@ -47,7 +47,6 @@ def _get_basename(args):
         ('T', args.max_iters),
         ('e', args.eval_iters),
         ('E', args.start_expl_at),
-        ('I', args.improve_expl),
         ('F', args.n_features),
         ('S', args.n_samples),
         ('K', args.kernel_width),
@@ -175,7 +174,6 @@ def caipi(problem,
           max_iters=100,
           start_expl_at=-1,
           eval_iters=10,
-          improve_expl=False,
           basename=None,
           rng=None):
     rng = check_random_state(rng)
@@ -229,7 +227,8 @@ def caipi(problem,
         true_y = problem.query_label(i)
         known_examples.append(i)
 
-        if explain and improve_expl:
+        if explain:
+            print('querying correction...')
             X_corr, y_corr = \
                 problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl,
                                           X_test_tuples)
@@ -340,9 +339,7 @@ def main():
 
     group = parser.add_argument_group('Interaction')
     group.add_argument('-E', '--start-expl-at', type=int, default=-1,
-                       help='Iteration at which explanations kick in')
-    group.add_argument('-I', '--improve-expl', action='store_true',
-                       help='Whether the explanations should be improved')
+                       help='Iteration at which corrections kick in')
     group.add_argument('-F', '--n-features', type=int, default=10,
                        help='Number of LIME features to present the user')
     group.add_argument('-S', '--n-samples', type=int, default=5000,
