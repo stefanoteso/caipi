@@ -21,7 +21,7 @@ class Tango:
 def get_style(args):
 
     label = args.learner + ' ' + args.strategy
-    if args.improve_expl:
+    if args.start_expl_at >= 0:
         label += ' (EI)'
     else:
         label += ' (NO EI)'
@@ -44,7 +44,7 @@ def get_style(args):
     style, marker = {
         True: ('-', 's'),
         False: ('-.', '*'),
-    }[args.improve_expl]
+    }[args.start_expl_at >= 0]
 
     return label, color, style, marker
 
@@ -62,20 +62,27 @@ def draw(args):
     min_folds = min(list(len(datum) for datum in pickle_data))
     perfs = np.array([datum[:min_folds] for datum in pickle_data])
 
-    # traces has shape: [n_pickles, n_folds, n_iters, n_measures]
-    TO_TITLE = [
-        'Pred. Pr', 'Pred. Rc', 'Pred. F1',
-        'Expl. Pr', 'Expl. Rc', 'Expl. F1',
-        '# of corrections',
-    ]
+    # perfs has shape: [n_pickles, n_folds, n_iters, n_measures]
+    if perfs.shape[-1] == 3:
+        to_title = [
+            'Pred. F1',
+            'Conf. Rec.',
+            '# of corrections',
+        ]
+    else:
+        to_title = [
+            'Pred. Pr', 'Pred. Rc', 'Pred. F1',
+            'Expl. Pr', 'Expl. Rc', 'Expl. F1',
+            '# of corrections',
+        ]
 
     for i_measure in range(perfs.shape[-1]):
 
-        print(TO_TITLE[i_measure])
+        print(to_title[i_measure])
         print(perfs[:, :, :, i_measure])
 
         fig, ax = plt.subplots(1, 1)
-        ax.set_title(TO_TITLE[i_measure])
+        ax.set_title(to_title[i_measure])
         ax.set_xlabel('# iterations')
 
         for i_pickle in range(perfs.shape[0]):
