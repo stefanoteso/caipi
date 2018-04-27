@@ -23,10 +23,19 @@ _TERM = blessings.Terminal()
 
 class ImageProblem(Problem):
     def __init__(self, **kwargs):
+        labels = kwargs.pop('labels')
+        images = kwargs.pop('images')
         self.class_names = kwargs.pop('class_names')
-        self.y = kwargs.pop('y')
-        self.images = self._add_confounders(kwargs.pop('images'))
+        n_examples = kwargs.pop('n_examples', None)
         self.lime_repeats = kwargs.pop('lime_repeats', 1)
+
+        if n_examples is not None:
+            rng = check_random_state(kwargs.get('rng', None))
+            perm = rng.permutation(len(labels))[:n_examples]
+            images, labels = images[perm], labels[perm]
+
+        self.y = labels
+        self.images = self._add_confounders(images)
         self.X = np.stack([gray2rgb(image) for image in self.images], 0)
 
         self.explainable = set(range(len(self.y)))
@@ -133,6 +142,8 @@ class ImageProblem(Problem):
         for value in range(0, 255, 16):
             corr_image = np.array(image, copy=True)
             for r, c in fp_coords:
+                print('correcting pixel {},{} for label {}'.format(
+                          r, c, true_y))
                 corr_image[r, c] = value
             X_new_corr.append(gray2rgb(corr_image))
 
@@ -173,8 +184,6 @@ class ImageProblem(Problem):
                            i, true_y, mask=conf_mask)
             self.save_expl(basename + '_{}_{}_expl.png'.format(i, t),
                            i, pred_y, mask=pred_masks[pred_y])
-            self.save_expl(basename + '_{}_{}_segments.png'.format(i, t),
-                           i, pred_y, segments=segments)
 
         return np.mean(perfs, axis=0),
 
@@ -236,13 +245,12 @@ class MNISTProblem(ImageProblem):
         images = np.vstack((tr_images, ts_images))
         labels = np.hstack((tr_labels, ts_labels))
 
-        if n_examples is not None:
-            rng = check_random_state(kwargs.get('rng', None))
-            perm = rng.permutation(len(labels))[:n_examples]
-            images, labels = images[perm], labels[perm]
+        CLASS_NAMES = list(map(str, range(10)))
 
-        super().__init__(images=images, y=labels,
-                         class_names=list(map(str, range(10))),
+        super().__init__(images=images,
+                         labels=labels,
+                         class_names=CLASS_NAMES,
+                         n_examples=n_examples,
                          **kwargs)
 
 
@@ -254,11 +262,13 @@ class FashionProblem(ImageProblem):
         images = np.vstack((tr_images, ts_images))
         labels = np.hstack((tr_labels, ts_labels))
 
-        if n_examples is not None:
-            rng = check_random_state(kwargs.get('rng', None))
-            perm = rng.permutation(len(labels))[:n_examples]
-            images, labels = images[perm], labels[perm]
+        CLASS_NAMES = [
+            'T-shirt', 'trouser', 'pullover', 'dress', 'coat', 'sandal',
+            'shirt', 'sneaker', 'bag', 'ankle_boots'
+        ]
 
-        super().__init__(images=images, y=labels,
-                         class_names=list(map(str, range(10))),
+        super().__init__(images=images,
+                         labels=labels,
+                         class_names=CLASS_NAMES,
+                         n_examples=n_examples,
                          **kwargs)
