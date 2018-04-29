@@ -50,31 +50,11 @@ class ImageProblem(Problem):
         return np.array(noisy_images, dtype=np.uint8)
 
     def _y_to_confounder(self, image, label):
-        dd = image.shape[-1] // len(self.class_names) // 2
+        dd = image.shape[-1] // len(self.class_names)
         ys, xs = range(label * dd, (label + 1) * dd), range(dd)
         mask = np.zeros_like(image)
-        mask[np.ix_(ys, xs)] = 128
+        mask[np.ix_(ys, xs)] = 255
         return mask
-
-    def _x_to_asciiart(self, x, mask=None, segments=None):
-        text = ''
-        for i, row in enumerate(rgb2gray(x)):
-            for j, value in enumerate(row):
-                gray = 232 + int(round((1 - value) * 23))
-                color, char = _TERM.blue, ' '
-                if mask is not None and mask[i,j] != 0:
-                    char = '□'
-                    color = {1: _TERM.red, 2: _TERM.green}[mask[i,j]]
-                if segments is not None:
-                    char = '□'
-                    color = _TERM.color(segments[i, j] & 15)
-                text += (_TERM.on_color(gray) +
-                         color +
-                         _TERM.bold +
-                         char +
-                         _TERM.normal)
-            text += '\n'
-        return text
 
     def preproc(self, images):
         return np.array([rgb2gray(image).ravel() for image in images])
@@ -91,27 +71,23 @@ class ImageProblem(Problem):
                                           sigma=0,
                                           random_seed=0)
         expl = explainer.explain_instance(self.X[i],
+                                          top_labels=len(self.class_names),
                                           classifier_fn=learner.predict_proba,
                                           segmentation_fn=segmenter,
                                           model_regressor=local_model,
-                                          top_labels=len(self.class_names),
                                           num_samples=self.n_samples,
                                           num_features=self.n_features,
                                           batch_size=1,
                                           hide_color=False)
-
-        masks = []
-        for target_y in range(len(self.class_names)):
-            _, mask = expl.get_image_and_mask(target_y,
-                                              positive_only=False,
-                                              num_features=self.n_features,
-                                              min_weight=0.01,
-                                              hide_rest=False)
-            masks.append(mask)
-
+        #print(expl.top_labels)
+        _, mask = expl.get_image_and_mask(pred_y,
+                                          positive_only=False,
+                                          num_features=self.n_features,
+                                          min_weight=0.01,
+                                          hide_rest=False)
         if return_segments:
-            return masks, expl.segments
-        return masks
+            return mask, expl.segments
+        return mask
 
     def query_label(self, i):
         return self.y[i]
@@ -123,23 +99,23 @@ class ImageProblem(Problem):
                 for c in range(image.shape[1])
                 if mask[r, c] != 0}
 
-    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_masks, X_test):
+    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_mask, X_test):
         true_y = self.y[i]
-        if pred_masks is None or \
+        if pred_mask is None or \
            pred_y != true_y or \
            not i in self.explainable:
             return X_corr, y_corr
 
         image = self.images[i]
         conf_mask = self._y_to_confounder(image, self.y[i])
-        conf_mask[conf_mask == 128] = 2
+        conf_mask[conf_mask == 255] = 2
 
         conf_coords = self._extract_coords(image, conf_mask)
-        pred_coords = self._extract_coords(image, pred_masks[pred_y])
+        pred_coords = self._extract_coords(image, pred_mask)
         fp_coords = conf_coords & pred_coords
 
         X_new_corr = []
-        for value in range(0, 255, 16):
+        for value in [-10, 0, 11]:
             corr_image = np.array(image, copy=True)
             for r, c in fp_coords:
                 print('correcting pixel {},{} for label {}'.format(
@@ -166,15 +142,15 @@ class ImageProblem(Problem):
 
             image = self.images[i]
             conf_mask = self._y_to_confounder(image, true_y)
-            conf_mask[conf_mask == 128] = 2
+            conf_mask[conf_mask == 255] = 2
 
-            pred_masks, segments = \
+            pred_mask, segments = \
                 self.explain(learner, known_examples, i, pred_y,
                              return_segments=True)
 
             # Compute confounder recall
             conf_coords = self._extract_coords(image, conf_mask)
-            pred_coords = self._extract_coords(image, pred_masks[pred_y])
+            pred_coords = self._extract_coords(image, pred_mask)
             perfs.append(len(conf_coords & pred_coords) / len(conf_coords))
 
             if basename is None:
@@ -183,7 +159,7 @@ class ImageProblem(Problem):
             self.save_expl(basename + '_{}_true.png'.format(i),
                            i, true_y, mask=conf_mask)
             self.save_expl(basename + '_{}_{}_expl.png'.format(i, t),
-                           i, pred_y, mask=pred_masks[pred_y])
+                           i, pred_y, mask=pred_mask)
 
         return np.mean(perfs, axis=0),
 

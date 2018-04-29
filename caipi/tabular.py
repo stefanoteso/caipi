@@ -631,3 +631,39 @@ class TTTProblem(TabularProblem):
 
         fig.savefig(path, bbox_inches=0, pad_inches=0)
         plt.close(fig)
+
+
+class SudokuProblem(TabularProblem):
+    """Classification of sudoku instances in correct and incorrect."""
+    def __init__(self, **kwargs):
+
+        Z = np.array([])
+        y = np.array([], dtype=np.int8)
+
+        z_names = ['{},{}'.format(r, c)
+                   for r, c in product(range(3), repeat=2)]
+
+        super().__init__(y=y,
+                         Z=Z,
+                         class_names=['infeasible', 'feasible'],
+                         z_names=z_names,
+                         metric='hamming',
+                         **kwargs)
+
+    def z_to_x(self, z):
+        raise NotImplementedError()
+
+    def z_to_y(self, z):
+        raise NotImplementedError()
+
+    def z_to_expl(self, z):
+        raise NotImplementedError()
+
+    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
+        true_y = self.y[i]
+        if pred_expl is None or pred_y != true_y:
+            return X_corr, y_corr
+        raise NotImplementedError()
+
+    def save_expl(self, path, i, y, expl):
+        raise NotImplementedError()
