@@ -53,7 +53,7 @@ class ActiveLearner:
 
 
 class LinearLearner(ActiveLearner):
-    def __init__(self, *args, strategy='random', model='svm', C=1.0,
+    def __init__(self, *args, strategy='random', model='svm', C=None,
                  sparse=False, **kwargs):
 
         super().__init__(*args, **kwargs)
@@ -61,14 +61,14 @@ class LinearLearner(ActiveLearner):
         pm = None
         if model == 'lr':
             # logistic regression
-            dm = pm = LogisticRegression(C=C,
+            dm = pm = LogisticRegression(C=C or 1000,
                                          penalty='l2',
                                          multi_class='ovr',
                                          random_state=0)
 
         elif model == 'svm':
             # linear SVM (dense)
-            dm = LinearSVC(C=C,
+            dm = LinearSVC(C=C or 1000,
                            penalty='l2',
                            loss='hinge',
                            multi_class='ovr',
@@ -76,7 +76,7 @@ class LinearLearner(ActiveLearner):
 
         elif model == 'l1svm':
             # linear SVM (sparse)
-            dm = LinearSVC(C=C,
+            dm = LinearSVC(C=C or 1,
                            penalty='l1',
                            loss='squared_hinge',
                            dual=False,
@@ -84,7 +84,7 @@ class LinearLearner(ActiveLearner):
                            random_state=0)
 
         elif model == 'polysvm':
-            dm = pm = SVC(C=C,
+            dm = pm = SVC(C=C or 1,
                           kernel='poly',
                           probability=True,
                           decision_function_shape='ovr',
