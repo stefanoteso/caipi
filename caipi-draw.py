@@ -101,10 +101,11 @@ def draw(args):
             ax.fill_between(x, y - yerr, y + yerr, color=color,
                             alpha=0.35, linewidth=0)
 
-        legend = ax.legend(loc='upper center',
-                           bbox_to_anchor=(0.5, 1.25),
-                           ncol=3,
-                           shadow=False)
+        if args.legend:
+            legend = ax.legend(loc='upper center',
+                               bbox_to_anchor=(0.5, 1.25),
+                               ncol=3,
+                               shadow=False)
 
         fig.savefig(args.basename + '_{}.png'.format(i_measure),
                     bbox_inches='tight', pad_inches=0)
@@ -118,6 +119,8 @@ if __name__ == '__main__':
                         help='basename of the loss/time PNG plots')
     parser.add_argument('pickles', type=str, nargs='+',
                         help='comma-separated list of pickled results')
+    parser.add_argument('--legend', action='store_true',
+                        help='whether to draw the legend')
     args = parser.parse_args()
 
     draw(args)
