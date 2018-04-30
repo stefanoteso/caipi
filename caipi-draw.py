@@ -87,7 +87,8 @@ def draw(args):
         if to_title[i_measure].startswith('Pred.'):
             ax.set_ylim(args.min_pred_f1, 1.05)
         else:
-            ax.xaxis.set_ticks([1, 2])
+            ax.xaxis.set_ticks([0, 1, 2, 3, 4, 5])
+            ax.xaxis.set_ticklabels([0, 20, 40, 60, 80, 100])
 
         for i_pickle in range(perfs.shape[0]):
             perf = perfs[i_pickle, :, :, i_measure]
