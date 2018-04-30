@@ -263,7 +263,7 @@ def caipi(problem,
         learner.fit(X_known, y_known)
         params.append(learner.get_params())
 
-        do_eval = t % eval_iters == 0
+        do_eval = eval_iters > 0 and t % eval_iters == 0
         #print('evaluating on known...')
         #known_perf = problem.eval(learner,
         #                    known_examples,
