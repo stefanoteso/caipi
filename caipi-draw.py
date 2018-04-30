@@ -43,7 +43,7 @@ def get_style(args):
 
     style, marker = {
         True: ('-', 's'),
-        False: ('-.', '*'),
+        False: (':', '*'),
     }[args.start_expl_at >= 0]
 
     return label, color, style, marker
