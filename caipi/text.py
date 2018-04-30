@@ -23,6 +23,7 @@ class TextProblem(Problem):
         self.processed_docs = kwargs.pop('processed_docs')
         self.explanations = kwargs.pop('explanations')
         self.lime_repeats = kwargs.pop('lime_repeats', 1)
+        _ = kwargs.pop('n_examples', None)
         self.correction_method = kwargs.pop('correction_method', 'singleton')
         super().__init__(**kwargs)
 
