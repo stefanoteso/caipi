@@ -5,23 +5,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 from caipi import load
 
-plt.style.use('ggplot')
-
-data = load(sys.argv[2])
 
 def nrm(w):
     return (w - np.min(w)) / (np.max(w) - np.min(w) + 1e-13)
 
-try:
-    data = np.array(data)
-    # (n_folds, n_iters, n_classes, n_features)
-    n_iters = data.shape[1]
-    vectors = data[0,:,:,:].reshape((n_iters, -1))
-except:
-    vectors = np.vstack([data['w_train'], data['w_corr'], data['w_both']])
 
-if vectors.shape[1] == 300:
-    from numpy.linalg import lstsq
+def nstd(x):
+    return np.std(x, axis=0) / np.sqrt(x.shape[0])
+
+
+plt.style.use('ggplot')
+
+data = load(sys.argv[2])
+data = np.array(data)
+n_folds, n_iters, n_classes, n_features = data.shape
+
+if n_features == 300:
 
     RULE0_COORDS = {(0, 4), (0, 20), (0, 24), (4, 20), (4, 24), (20, 24)}
     RULE0_BASIS = np.array([1.0 if (i, j) in RULE0_COORDS else 0.0
@@ -33,29 +32,43 @@ if vectors.shape[1] == 300:
                             for i in range(5*5)
                             for j in range(i+1, 5*5)])
 
-    A = np.array([RULE0_BASIS, RULE1_BASIS]).T
-    b = vectors.T
+    DICTIONARY = np.array([RULE0_BASIS, RULE1_BASIS]).T
 
-    alpha, residuals, _, _ = lstsq(A, b)
-    # (n_rules, n_iters)
+    results = []
+    for k in range(n_folds):
+        weights = data[k, :, 0, :]
+        # (n_iters, n_features)
+        alpha, residuals, _, _ = np.linalg.lstsq(DICTIONARY, weights.T,
+                                                 rcond=None)
+        # (n_rules, n_iters), (n_iters,)
+        result = np.vstack((alpha, residuals.T))
+        # (n_rules + 1, n_iters)
+        results.append(result)
+
+    results = np.array(results)
+    # (n_folds, n_rules + 1, n_iters)
+
+    def plot_both(ax, results, what, label, linestyle='-'):
+        temp = results[:, what, :].reshape((n_folds, -1))
+        x = np.arange(temp.shape[-1])
+        y, yerr = np.mean(temp, axis=0), nstd(temp)
+        ax.plot(x, y, linewidth=2, label=label, linestyle=linestyle)
+        ax.fill_between(x, y - yerr, y + yerr, alpha=0.35, linewidth=0)
 
     fig, ax = plt.subplots(1, 1)
-    x = np.arange(0, alpha.shape[1])
-    coeff_rule0 = alpha[0,:]
-    ax.plot(x, coeff_rule0, label='coeff. of rule 0', linewidth=2)
-    coeff_rule1 = alpha[1,:]
-    ax.plot(x, coeff_rule1, label='coeff. of rule 1', linewidth=2)
-    ax.plot(x, residuals, label='residual', linewidth=2, linestyle=':')
+    plot_both(ax, results, 0, 'coeff. rule 0')
+    plot_both(ax, results, 1, 'coeff. rule 1')
+    plot_both(ax, results, 2, 'residual', linestyle=':')
 
     legend = ax.legend(loc='upper right',
                        shadow=False)
 
     fig.savefig(sys.argv[1] + '__coeff', bbox_inches='tight', pad_inches=0)
-    quit()
 
+else:
+    fig = plt.figure(figsize=(50, len(vectors)))
+    ax = fig.add_subplot(111)
+    ax.set_axis_off()
 
-fig = plt.figure(figsize=(50, len(vectors)))
-ax = fig.add_subplot(111)
-ax.set_axis_off()
-ax.matshow(nrm(vectors), cmap=plt.get_cmap('gray'))
-fig.savefig(sys.argv[1], bbox_inches='tight', pad_inches=0)
+    ax.matshow(nrm(vectors), cmap=plt.get_cmap('gray'))
+    fig.savefig(sys.argv[1], bbox_inches='tight', pad_inches=0)
