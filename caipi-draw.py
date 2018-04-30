@@ -84,6 +84,10 @@ def draw(args):
         fig, ax = plt.subplots(1, 1)
         ax.set_title(to_title[i_measure])
         ax.set_xlabel('# iterations')
+        if to_title[i_measure].startswith('Pred.'):
+            ax.set_ylim(args.min_pred_f1, 1.05)
+        else:
+            ax.xaxis.set_ticks([1, 2])
 
         for i_pickle in range(perfs.shape[0]):
             perf = perfs[i_pickle, :, :, i_measure]
@@ -119,6 +123,8 @@ if __name__ == '__main__':
                         help='basename of the loss/time PNG plots')
     parser.add_argument('pickles', type=str, nargs='+',
                         help='comma-separated list of pickled results')
+    parser.add_argument('--min-pred-f1', type=float, default=0,
+                        help='minimum pred. F1 score')
     parser.add_argument('--legend', action='store_true',
                         help='whether to draw the legend')
     args = parser.parse_args()
