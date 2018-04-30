@@ -329,7 +329,7 @@ def eval_interactive(problem, args, rng=None):
                             basename=basename + '_fold={}'.format(k),
                             rng=rng)
         perfs.append(perf)
-        params.extend(param)
+        params.append(param)
 
         dump(basename + '.pickle', {'args': args, 'perfs': perfs})
         dump(basename + '-params.pickle', params)
