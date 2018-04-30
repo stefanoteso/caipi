@@ -65,10 +65,13 @@ if n_features == 300:
 
     fig.savefig(sys.argv[1] + '__coeff', bbox_inches='tight', pad_inches=0)
 
-else:
-    fig = plt.figure(figsize=(50, len(vectors)))
-    ax = fig.add_subplot(111)
-    ax.set_axis_off()
+fig = plt.figure(figsize=(30, 100))
+ax = fig.add_subplot(111)
+ax.set_axis_off()
 
-    ax.matshow(nrm(vectors), cmap=plt.get_cmap('gray'))
-    fig.savefig(sys.argv[1], bbox_inches='tight', pad_inches=0)
+matrix = data.reshape((n_folds, n_iters, n_classes * n_features))
+matrix = matrix.mean(axis=0)
+
+ax.matshow(nrm(matrix), cmap=plt.get_cmap('gray'))
+
+fig.savefig(sys.argv[1] + '__weights', bbox_inches='tight', pad_inches=0)
