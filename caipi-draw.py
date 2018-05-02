@@ -106,11 +106,8 @@ def draw(args):
             ax.fill_between(x, y - yerr, y + yerr, color=color,
                             alpha=0.35, linewidth=0)
 
-        if args.legend:
-            legend = ax.legend(loc='upper center',
-                               bbox_to_anchor=(0.5, 1.25),
-                               ncol=3,
-                               shadow=False)
+        legend = ax.legend(loc='lower right',
+                           shadow=False)
 
         fig.savefig(args.basename + '_{}.png'.format(i_measure),
                     bbox_inches='tight', pad_inches=0)

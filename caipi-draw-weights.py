@@ -18,6 +18,8 @@ plt.style.use('ggplot')
 
 data = load(sys.argv[2])
 data = np.array(data)
+if data.ndim == 3:
+    data = data.reshape((10, 101, 1, 300))
 n_folds, n_iters, n_classes, n_features = data.shape
 
 if n_features == 300:
