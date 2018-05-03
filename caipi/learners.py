@@ -20,9 +20,6 @@ class ActiveLearner:
             return self.problem.preproc(X)
         return X
 
-    def select_model(self, X, y):
-        raise NotImplementedError()
-
     def fit(self, X, y):
         X = self._check_preprocessed(X)
         self._decision_model.fit(X, y)
@@ -132,20 +129,6 @@ class LinearLearner(ActiveLearner):
             diffs[i] = prob[sorted_indices[-1]] - prob[sorted_indices[-2]]
         return examples[np.argmin(diffs)]
 
-    def select_model(self, X, y):
-        Cs = np.logspace(-3, 3, 7)
-
-        X = self._check_preprocessed(X)
-        grid = GridSearchCV(estimator=self._decision_model,
-                            param_grid=dict(C=Cs),
-                            scoring='f1_weighted',
-                            n_jobs=-1)
-        grid.fit(X, y)
-        best_C = grid.best_estimator_.C
-        print('SVM: setting C to', best_C)
-        self._decision_model.set_params(C=best_C)
-        # XXX do we have to update the prob model here?
-
 
 
 class GPLearner(ActiveLearner):
@@ -159,9 +142,6 @@ class GPLearner(ActiveLearner):
             'random': self._select_at_random,
             'most-variance': self._select_most_variance,
         }[strategy]
-
-    def select_model(self, X, y):
-        pass
 
     def _select_at_random(self, problem, examples):
         return self.rng.choice(sorted(examples))
