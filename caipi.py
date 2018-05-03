@@ -223,8 +223,8 @@ def caipi(problem,
     #params = np.round(learner.get_params(), decimals=1)
     #print('train model = {params}, perfs = {perf}'.format(**locals()))
 
-    learner.select_model(problem.X[known_examples],
-                         problem.y[known_examples])
+    #learner.select_model(problem.X[known_examples],
+    #                     problem.y[known_examples])
     learner.fit(problem.X[known_examples],
                 problem.y[known_examples])
 
