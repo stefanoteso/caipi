@@ -7,6 +7,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
+from sklearn.utils import check_random_state
 from lime.lime_text import LimeTextExplainer
 
 from . import Problem, load, densify, vstack, hstack
@@ -23,9 +24,17 @@ class TextProblem(Problem):
         self.processed_docs = kwargs.pop('processed_docs')
         self.explanations = kwargs.pop('explanations')
         self.lime_repeats = kwargs.pop('lime_repeats', 1)
-        _ = kwargs.pop('n_examples', None)
+        n_examples = kwargs.pop('n_examples', None)
         self.correction_method = kwargs.pop('correction_method', 'singleton')
         super().__init__(**kwargs)
+
+        if n_examples is not None:
+            rng = check_random_state(kwargs.get('rng', None))
+            perm = rng.permutation(len(self.y))[:n_examples]
+            self.y = self.y[perm]
+            self.docs = [self.docs[i] for i in perm]
+            self.processed_docs = [self.processed_docs[i] for i in perm]
+            self.explanations = [self.explanations[i] for i in perm]
 
         self.vectorizer = TfidfVectorizer(lowercase=False) \
                               .fit(self.processed_docs)
