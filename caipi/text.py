@@ -153,7 +153,7 @@ class TextProblem(Problem):
                                      known_examples,
                                      eval_examples,
                                      t=t, basename=basename)
-        return tuple(pred_perfs) + tuple(expl_perfs)
+        return np.array(tuple(pred_perfs) + tuple(expl_perfs))
 
     @staticmethod
     def _highlight_words(text, expl):
