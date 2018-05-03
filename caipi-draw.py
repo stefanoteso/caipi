@@ -39,6 +39,8 @@ def get_style(args):
         'most-variance': 2,
         'least-margin': 1,
     }[args.strategy]
+
+    shade = 0 if args.start_expl_at >= 0 else 2
     color = base_color[shade]
 
     style, marker = {
