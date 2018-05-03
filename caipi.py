@@ -134,7 +134,7 @@ def eval_passive(problem, args, rng=None):
         perf = problem.eval(learner, train_examples,
                             test_examples, eval_examples,
                             t='train', basename=basename)
-        print('perf on expl-as-doc set =', perf)
+        print('perf on expl-as-doc set   =', perf)
     except:
         pass
 
@@ -165,7 +165,7 @@ def eval_passive(problem, args, rng=None):
         perf = problem.eval(learner, train_examples,
                             test_examples, eval_examples,
                             t='corr', basename=basename)
-    print('perf on corr only =', perf)
+    print('perf on corr only         =', perf)
 
     print('Computing train+corr performance...')
     X_train_corr = vstack([problem.X[train_examples], X_corr])
@@ -176,7 +176,7 @@ def eval_passive(problem, args, rng=None):
     perf = problem.eval(learner, train_examples,
                         test_examples, eval_examples,
                         t='train+corr', basename=basename)
-    print('perf on train+corr set =', perf)
+    print('perf on train+corr set    =', perf)
 
     print('w_train        :\n', train_params)
     print('w_corr         :\n', corr_params)
