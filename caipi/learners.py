@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.svm import LinearSVC, SVC
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.gaussian_process import (GaussianProcessRegressor,
                                       GaussianProcessClassifier)
 from sklearn.calibration import CalibratedClassifierCV
@@ -57,6 +57,7 @@ class LinearLearner(ActiveLearner):
                  sparse=False, **kwargs):
 
         super().__init__(*args, **kwargs)
+        self.model = model
 
         pm = None
         if model == 'lr':
@@ -82,6 +83,13 @@ class LinearLearner(ActiveLearner):
                            dual=False,
                            multi_class='ovr',
                            random_state=0)
+
+        elif model == 'elastic':
+            # elastic net (kinda sparse)
+            dm = SGDClassifier(penalty='elasticnet',
+                               loss='hinge',
+                               l1_ratio=0.15,
+                               random_state=0)
 
         elif model == 'polysvm':
             dm = pm = SVC(C=C or 1,

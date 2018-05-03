@@ -35,6 +35,8 @@ LEARNERS = {
             LinearLearner(*args, model='svm', **kwargs),
     'l1svm': lambda *args, **kwargs: \
             LinearLearner(*args, model='l1svm', **kwargs),
+    'elastic': lambda *args, **kwargs: \
+            LinearLearner(*args, model='elastic', **kwargs),
     'polysvm': lambda *args, **kwargs: \
             LinearLearner(*args, model='polysvm', **kwargs),
     'gp': GPLearner,
