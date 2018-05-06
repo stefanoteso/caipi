@@ -53,10 +53,12 @@ def _get_basename(args):
         ('T', args.max_iters),
         ('e', args.eval_iters),
         ('E', args.start_expl_at),
+        ('C', args.corr_type),
         ('F', args.n_features),
         ('S', args.n_samples),
         ('K', args.kernel_width),
         ('R', args.lime_repeats),
+        ('V', args.vectorizer),
         ('s', args.seed),
     ]
     basename += '__' + '__'.join([name + '=' + str(value)
@@ -102,8 +104,7 @@ def eval_passive(problem, args, rng=None):
     print('  #explainable in eval', len(set(eval_examples) & problem.explainable))
 
     learner = LEARNERS[args.learner](problem, strategy=args.strategy, rng=0)
-    #learner.select_model(problem.X[train_examples],
-    #                     problem.y[train_examples])
+
     learner.fit(problem.X[train_examples],
                 problem.y[train_examples])
     train_params = learner.get_params()
@@ -120,71 +121,37 @@ def eval_passive(problem, args, rng=None):
                         t='train2', basename=basename)
     print('perf on full training set =', perf)
 
-    try:
-        print('Computing expl-as-doc performance...')
-        expl2doc = lambda expl: ' '.join([word for word, _ in expl])
-
-        explanations_as_docs = [expl2doc(problem.explanations[i])
-                                for i in train_examples]
-        X_explanations = problem.vectorizer.transform(explanations_as_docs)
-        #learner.select_model(X_explanations,
-        #                     problem.y[train_examples])
-        learner.fit(X_explanations,
-                    problem.y[train_examples])
-        perf = problem.eval(learner, train_examples,
-                            test_examples, eval_examples,
-                            t='train', basename=basename)
-        print('perf on expl-as-doc set   =', perf)
-    except:
-        pass
-
     print('Computing corrections for {} examples...'.format(len(train_examples)))
     X_test_tuples = {tuple(densify(problem.X[i]).ravel())
                      for i in test_examples}
 
-    X_corr, y_corr = None, None
-    expl_train_examples = set(train_examples) & problem.explainable
-    for j, i in enumerate(expl_train_examples):
-        print('  correcting {:3d} / {:3d}'.format(j + 1, len(expl_train_examples)))
+    all_corrections = set()
+    for j, i in enumerate(train_examples):
+        print('  correcting {:3d} / {:3d}'.format(j + 1, len(train_examples)))
         x = densify(problem.X[i])
         pred_y = learner.predict(x)[0]
         pred_expl = problem.explain(learner, train_examples, i, pred_y)
-        X_corr, y_corr = problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl, X_test_tuples)
+        corrections = problem.query_corrections(i, pred_y, pred_expl,
+                                                X_test_tuples)
+        all_corrections.update(corrections)
 
-    if X_corr is None:
-        print('no corrections were obtained')
-        return
-    print(X_corr.shape[0], 'corrections obtained')
+    print('all_corrections =', all_corrections)
 
-    print('Computing corr performance...')
-    corr_params = None
-    if np.min(y_corr) != np.max(y_corr):
-        #learner.select_model(X_corr, y_corr)
-        learner.fit(X_corr, y_corr)
-        corr_params = learner.get_params()
-        perf = problem.eval(learner, train_examples,
-                            test_examples, eval_examples,
-                            t='corr', basename=basename)
-    print('perf on corr only         =', perf)
-
-    print('Computing train+corr performance...')
-    X_train_corr = vstack([problem.X[train_examples], X_corr])
-    y_train_corr = hstack([problem.y[train_examples], y_corr])
-    #learner.select_model(X_train_corr, y_train_corr)
-    learner.fit(X_train_corr, y_train_corr)
+    print('Computing corrected train performance...')
+    train_corr_examples = list(sorted(set(train_examples) | all_corrections))
+    learner.fit(problem.X[train_corr_examples],
+                problem.y[train_corr_examples])
     train_corr_params = learner.get_params()
     perf = problem.eval(learner, train_examples,
                         test_examples, eval_examples,
                         t='train+corr', basename=basename)
-    print('perf on train+corr set    =', perf)
+    print('perf on corrected set     =', perf)
 
     print('w_train        :\n', train_params)
-    print('w_corr         :\n', corr_params)
     print('w_{train+corr} :\n', train_corr_params)
 
     dump(basename + '_passive_models.pickle', {
             'w_train': train_params,
-            'w_corr': corr_params,
             'w_both': train_corr_params
         })
 
@@ -251,13 +218,16 @@ def caipi(problem,
         true_y = problem.query_label(i)
         known_examples.append(i)
 
-        if explain:
-            X_corr, y_corr = \
-                problem.query_corrections(X_corr, y_corr, i, pred_y, pred_expl,
-                                          X_test_tuples)
+        raise NotImplementedError()
 
-        X_known = vstack([X_corr, problem.X[known_examples]])
-        y_known = hstack([y_corr, problem.y[known_examples]])
+        if explain:
+            X, y = problem.query_corrections(problem.X[train_examples],
+                                             problem.y[train_examples],
+                                             X_corr,
+                                             y_corr,
+                                             i, pred_y, pred_expl,
+                                             X_test_tuples)
+
         per_class = np.array([len(y_known[y_known == label])
                             for label in range(len(problem.class_names))]) \
                     / len(y_known)
@@ -372,6 +342,8 @@ def main():
     group = parser.add_argument_group('Interaction')
     group.add_argument('-E', '--start-expl-at', type=int, default=-1,
                        help='Iteration at which corrections kick in')
+    group.add_argument('-C', '--corr-type', type=str, default=None,
+                       help='Type of correction feedback to use')
     group.add_argument('-F', '--n-features', type=int, default=10,
                        help='Number of LIME features to present the user')
     group.add_argument('-S', '--n-samples', type=int, default=5000,
@@ -380,6 +352,10 @@ def main():
                        help='LIME kernel width')
     group.add_argument('-R', '--lime-repeats', type=int, default=1,
                        help='Number of times to re-run LIME')
+
+    group = parser.add_argument_group('Text')
+    group.add_argument('--vectorizer', type=str, default=None,
+                       help='Text vectorizer to use')
     args = parser.parse_args()
 
     np.seterr(all='raise')
@@ -390,10 +366,12 @@ def main():
 
     print('Creating problem...')
     problem = PROBLEMS[args.problem](n_examples=args.n_examples,
+                                     corr_type=args.corr_type,
                                      n_samples=args.n_samples,
                                      n_features=args.n_features,
                                      kernel_width=args.kernel_width,
                                      lime_repeats=args.lime_repeats,
+                                     vect_type=args.vectorizer,
                                      rng=rng)
 
     if args.passive:
