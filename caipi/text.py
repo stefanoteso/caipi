@@ -3,7 +3,8 @@ import re, blessings
 from time import time
 from os.path import join
 from collections import defaultdict
-from sklearn.feature_extraction.text import TfidfVectorizer
+from scipy.sparse import csr_matrix
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import precision_recall_fscore_support as prfs
@@ -61,19 +62,29 @@ class TextProblem(Problem):
             self.processed_docs = [self.processed_docs[i] for i in perm]
             self.explanations = [self.explanations[i] for i in perm]
 
-        if self.vect_type == 'tfidf':
+        sparse = True
+        if self.vect_type == 'binary':
+            self.vectorizer = CountVectorizer(lowercase=False, binary=True) \
+                                  .fit(self.processed_docs)
+        elif self.vect_type == 'tfidf':
             self.vectorizer = TfidfVectorizer(lowercase=False) \
                                   .fit(self.processed_docs)
         elif self.vect_type == 'glove':
             path = join('data', 'word2vec_glove.6B.300d.bin')
             self.vectorizer = Word2VecVectorizer(path)
+            sparse = False
         elif self.vect_type == 'google-news':
             path = join('data', 'GoogleNews-vectors-negative300.bin')
             self.vectorizer = Word2VecVectorizer(path)
+            sparse = False
         else:
             raise ValueError('unknown vect_type "{}"'.format(self.vect_type))
 
-        self.X = self.vectorizer.transform(self.processed_docs)
+        if sparse:
+            X = self.vectorizer.transform(self.processed_docs).todense()
+            self.X = csr_matrix(np.vstack([x / np.linalg.norm(x) for x in X]))
+        else:
+            self.X = self.vectorizer.transform(self.processed_docs)
 
         self.explainable = {i for i in range(len(self.y))
                             if len(self.explanations[i])}
