@@ -87,11 +87,16 @@ class TextProblem(Problem):
             self.X = self.vectorizer.transform(self.processed_docs)
 
         self.explainable = {i for i in range(len(self.y))
-                            if len(self.explanations[i])}
+                            if self.explanations[i] is not None and len(self.explanations[i])}
 
     def explain(self, learner, known_examples, i, y_pred):
         explainer = LimeTextExplainer(class_names=self.class_names)
-        n_features = max(len(self.explanations[i]), 1)
+
+        # XXX hack
+        if self.explanations[i] is None:
+            n_features = 1
+        else:
+            n_features = max(len(self.explanations[i]), 1)
 
         pipeline = make_pipeline(self.vectorizer, learner)
 
@@ -128,7 +133,11 @@ class TextProblem(Problem):
             return set()
 
         all_words = set(self.processed_docs[i].split())
-        true_words = {word for word, _ in self.explanations[i]}
+        true_masks = self.explanations[i]
+        true_mask = np.sum(true_masks, axis=0)
+        words = self.processed_docs[i].split()
+        true_expl = [(words[i], true_mask[i]) for i in np.where(true_mask)[0]]
+        true_words = {word for word, _ in true_expl}
         pred_words = {word for word, _ in pred_expl}
         fp_words = pred_words - true_words
 
@@ -178,7 +187,10 @@ class TextProblem(Problem):
         perfs = []
         for i in set(eval_examples) & self.explainable:
             true_y = self.y[i]
-            true_expl = self.explanations[i]
+            true_masks = self.explanations[i]
+            true_mask = np.sum(true_masks, axis=0)
+            words = self.processed_docs[i].split()
+            true_expl = [(words[i], true_mask[i]) for i in np.where(true_mask)[0]]
 
             pred_y = learner.predict(densify(self.X[i]))[0]
             pred_expl = self.explain(learner, known_examples, i, pred_y)
@@ -186,7 +198,7 @@ class TextProblem(Problem):
             # NOTE here we don't care if the coefficients are wrong, since
             # those depend on whether the prediction is wrong
 
-            true_words = {(word, np.sign(coeff)) for word, coeff in self.explanations[i]}
+            true_words = {(word, np.sign(coeff)) for word, coeff in true_expl}
             pred_words = {(word, np.sign(coeff) if true_y == pred_y else -np.sign(coeff))
                           for word, coeff in pred_expl}
 
@@ -234,37 +246,17 @@ class TextProblem(Problem):
             fp.write('true y: ' + self.class_names[self.y[i]] + '\n')
             fp.write('pred y: ' + self.class_names[pred_y] + '\n')
             fp.write(80 * '-' + '\n')
-            fp.write(self._highlight_words(self.docs[i], expl))
+            #fp.write(self._highlight_words(self.docs[i], expl))
             fp.write('\n' + 80 * '-' + '\n')
             fp.write('explanation:\n')
             for word, sign in sorted(expl):
                 fp.write('{:32s} : {:3.1f}\n'.format(word, sign))
 
 
-class NewsgroupsProblem(TextProblem):
-    def __init__(self, *args, **kwargs):
-        classes = kwargs.pop('classes', None)
-        min_words = kwargs.pop('min_words', 10)
-
-        path = join('data', '20newsgroups_{}_{}.pickle'.format(
-                        '+'.join(sorted(classes)), min_words))
-        try:
-            dataset = load(path)
-        except:
-            raise RuntimeError('Run the data preparation script first!')
-
-        super().__init__(class_names=classes,
-                         y=dataset.target,
-                         docs=dataset.data,
-                         processed_docs=dataset.processed_data,
-                         explanations=dataset.explanations,
-                         **kwargs)
-
-
 class ReviewsProblem(TextProblem):
     def __init__(self, **kwargs):
 
-        path = join('data', 'review_polarity_rationales.pickle')
+        path = join('data', 'review_polarity_rationales_new.pickle')
         try:
             dataset = load(path)
         except:
