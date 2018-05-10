@@ -99,12 +99,14 @@ class ImageProblem(Problem):
                 for c in range(image.shape[1])
                 if mask[r, c] != 0}
 
-    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_mask, X_test):
+    def query_corrections(self, i, pred_y, pred_mask, X_test):
         true_y = self.y[i]
-        if pred_mask is None or \
-           pred_y != true_y or \
-           not i in self.explainable:
-            return X_corr, y_corr
+        if pred_mask is None:
+            return set()
+        if pred_y != true_y:
+            return set()
+        if i not in self.explainable:
+            return set()
 
         image = self.images[i]
         conf_mask = self._y_to_confounder(image, self.y[i])
@@ -114,21 +116,28 @@ class ImageProblem(Problem):
         pred_coords = self._extract_coords(image, pred_mask)
         fp_coords = conf_coords & pred_coords
 
-        X_new_corr = []
+        X_corrections = []
         for value in [-10, 0, 11]:
             corr_image = np.array(image, copy=True)
             for r, c in fp_coords:
                 print('correcting pixel {},{} for label {}'.format(
                           r, c, true_y))
                 corr_image[r, c] = value
-            X_new_corr.append(gray2rgb(corr_image))
+            X_corrections.append(gray2rgb(corr_image))
+        n_corrections = len(X_corrections)
 
-        X_new_corr = np.array(X_new_corr)
-        y_new_corr = np.array([self.y[i]] * len(X_new_corr), dtype=np.int8)
+        if not n_corrections:
+            return set()
 
-        X_corr = vstack([X_corr, X_new_corr])
-        y_corr = hstack([y_corr, y_new_corr])
-        return X_corr, y_corr
+        X_corrections = np.array(X_corrections)
+        y_corrections = np.array([pred_y] * n_corrections, dtype=np.int8)
+        extra_examples = set(range(self.X.shape[0],
+                                   self.X.shape[0] + n_corrections))
+
+        self.X = vstack([self.X, X_corrections])
+        self.y = hstack([self.y, y_corrections])
+
+        return extra_examples
 
     def _eval_expl(self, learner, known_examples, eval_examples,
                    t=None, basename=None):
