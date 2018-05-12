@@ -17,14 +17,7 @@ PROBLEMS = {
             ColorsProblem(*args, rule=0, **kwargs),
     'colors-rule1': lambda *args, **kwargs: \
             ColorsProblem(*args, rule=1, **kwargs),
-    'sudoku': SudokuProblem,
-    'newsgroups': lambda *args, **kwargs: \
-            NewsgroupsProblem(*args,
-                              classes=['sci.electronics', 'sci.med'],
-                              **kwargs),
     'reviews': ReviewsProblem,
-    'mnist': MNISTProblem,
-    'fashion': FashionProblem,
 }
 
 
