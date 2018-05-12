@@ -1,8 +1,6 @@
 import numpy as np
-from sklearn.svm import LinearSVC, SVC
+from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, SGDClassifier
-from sklearn.gaussian_process import (GaussianProcessRegressor,
-                                      GaussianProcessClassifier)
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import StratifiedKFold, GridSearchCV
 from sklearn.utils import check_random_state
@@ -88,13 +86,6 @@ class LinearLearner(ActiveLearner):
                                l1_ratio=0.15,
                                random_state=0)
 
-        elif model == 'polysvm':
-            dm = pm = SVC(C=C or 1,
-                          kernel='poly',
-                          probability=True,
-                          decision_function_shape='ovr',
-                          random_state=0)
-
         if pm is None:
             cv = StratifiedKFold(random_state=0)
             pm = CalibratedClassifierCV(dm, method='sigmoid', cv=cv)
@@ -128,25 +119,3 @@ class LinearLearner(ActiveLearner):
             sorted_indices = np.argsort(prob)
             diffs[i] = prob[sorted_indices[-1]] - prob[sorted_indices[-2]]
         return examples[np.argmin(diffs)]
-
-
-
-class GPLearner(ActiveLearner):
-    def __init__(self, *args, strategy='random', **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self._decision_model = GaussianProcessClassifier(random_state=0)
-        self._prob_model = GaussianProcessRegressor(random_state=0)
-
-        self.select_query = {
-            'random': self._select_at_random,
-            'most-variance': self._select_most_variance,
-        }[strategy]
-
-    def _select_at_random(self, problem, examples):
-        return self.rng.choice(sorted(examples))
-
-    def _select_most_variance(self, problem, examples):
-        examples = sorted(examples)
-        _, std = self._prob_model.predict(problem.X[examples], return_std=True)
-        return examples[np.argmax(std)]
