@@ -1,14 +1,14 @@
 - toy
     - DONE
 
-- colors
+- fashion:
     - DONE
-    - maybe implement L1+L2 regularization?
+    - illustrate the input gradients for NC, CE and IG
+
+- colors
+    - rerun L1 and L2 SVM with instantaneous accuracy and explanation accuracy
 
 - reviews
-    - make --passive work, the improvement is minimal for now
-
-- fashion:
-    - implement confounders that fool SVM and LR as well
-    - implement train/test split
-    - make --passive work
+    - make passive work by trimming away irrelevant features
+    - make active work
+    - possibly use an MLP (17s training on the full training set)
