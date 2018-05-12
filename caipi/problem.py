@@ -7,7 +7,8 @@ class Problem:
                  n_features=10,
                  kernel_width=1.0,
                  metric='euclidean',
-                 rng=None):
+                 rng=None,
+                 **kwargs):
         self.rng = check_random_state(rng)
 
         self.n_samples = n_samples
