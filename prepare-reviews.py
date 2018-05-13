@@ -6,7 +6,13 @@ import numpy as np
 import spacy
 from os import listdir
 from os.path import join
-from collections import Counter
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_selection import mutual_info_classif
+import matplotlib.pyplot as plt
+from caipi import load, dump
+
+N_DOCUMENTS_PER_CLASS = np.nan
+METHOD = 'local'
 
 np.set_printoptions(threshold=np.nan)
 
@@ -80,6 +86,8 @@ def read_docs(base_path, label):
     docs, rats = [], []
     rel_paths = sorted(listdir(base_path))
     for k, rel_path in enumerate(rel_paths):
+        if k >= N_DOCUMENTS_PER_CLASS:
+            break
         print('processing {}/{} {}'.format(k + 1, len(rel_paths), rel_path))
         n = rel_path.split('_')[-1].split('.')[0]
         with open(join(base_path, rel_path), encoding='latin-1') as fp:
@@ -90,14 +98,56 @@ def read_docs(base_path, label):
     return docs, rats
 
 
-print('Reading documents...')
-pos_docs, pos_rats = read_docs(join('data', 'review_polarity_rationales', 'withRats_pos'), +1)
-neg_docs, neg_rats = read_docs(join('data', 'review_polarity_rationales', 'withRats_neg'), -1)
+try:
+    print('Loading...')
+    y, docs, rats = load('reviews.pickle')
 
-print('Saving...')
-y = np.array([+1] * len(pos_docs) + [-1] * len(neg_docs))
-docs = pos_docs + neg_docs
-rats = pos_rats + neg_rats
+except:
+    print('Reading documents...')
+    pos_docs, pos_rats = read_docs(join('data', 'review_polarity_rationales', 'withRats_pos'), +1)
+    neg_docs, neg_rats = read_docs(join('data', 'review_polarity_rationales', 'withRats_neg'), -1)
+
+    print('Saving...')
+    y = np.array([+1] * len(pos_docs) + [-1] * len(neg_docs))
+    docs = pos_docs + neg_docs
+    rats = pos_rats + neg_rats
+    dump('reviews.pickle', (y, docs, rats))
+
+vectorizer = CountVectorizer(binary=True)
+X = vectorizer.fit_transform(docs)
+
+mi = mutual_info_classif(X, y, discrete_features=True, random_state=0)
+word_to_mi = {word: m for word, m in zip(vectorizer.get_feature_names(), mi)}
+
+
+if METHOD == 'global':
+    vocabulary = set()
+    for doc in docs:
+        vocabulary.update(doc.split())
+    vocabulary = list(sorted(vocabulary))
+
+    mi_vocabulary = np.array([word_to_mi.get(word, 0.0) for word in vocabulary])
+    mr_indices = mi_vocabulary.argsort()[::-1][:int(len(vocabulary) / 10)]
+    relevant_words = set(vocabulary[i] for i in range(len(vocabulary))
+                         if i in mr_indices)
+
+rats = []
+for doc in docs:
+
+    if METHOD == 'local':
+        words = list(sorted(set(doc.split())))
+        mi_words = np.array([word_to_mi.get(word, 0.0) for word in words])
+        relevant_indices = mi_words.argsort()[::-1][:10]
+        relevant_words = set(words[i] for i in range(len(words))
+                             if i in relevant_indices)
+
+    words = doc.split()
+    relevant_indices = [i for i in range(len(words))
+                        if words[i] in relevant_words]
+    print(len(relevant_indices))
+    mask = np.zeros((1, len(words)))
+    mask[0, relevant_indices] = 1
+    rats.append(mask)
 
 dataset = {
     'y': y,
@@ -105,5 +155,5 @@ dataset = {
     'explanations': rats,
 }
 
-with open(join('data', 'review_polarity_rationales_new.pickle'), 'wb') as fp:
+with open(join('data', 'review_polarity_rationales.pickle'), 'wb') as fp:
     pickle.dump(dataset, fp)
