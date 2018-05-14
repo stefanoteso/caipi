@@ -18,6 +18,7 @@ PROBLEMS = {
     'colors-rule1': lambda *args, **kwargs: \
             ColorsProblem(*args, rule=1, **kwargs),
     'reviews': ReviewsProblem,
+    'newsgroups': NewsgroupsProblem,
 }
 
 
