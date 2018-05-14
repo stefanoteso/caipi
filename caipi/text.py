@@ -193,15 +193,30 @@ class TextProblem(Problem):
             extra_examples = set()
 
         elif self.corr_type == 'add-contrast':
-            sorted_words = np.array(self.processed_docs[i].split())
-
-            # TODO corrections should have x_final = 0
+            # NOTE make sure to set fit_intercept=False!
+            words = np.array(self.processed_docs[i].split())
 
             corrections = []
             for mask in self.explanations[i]:
                 masked_indices = np.where(mask)[0]
-                rationale = ' '.join(sorted_words[masked_indices])
+                rationale = ' '.join(words[masked_indices])
                 corrections.append(rationale)
+
+            X_corrections = self.vectorizer.transform(corrections)
+            X_corrections = self.normalizer.transform(X_corrections,
+                                                      norms=[self.norms[i] for _ in corrections],
+                                                      append_value=0)
+
+            extra_examples = set(range(self.X.shape[0],
+                                       self.X.shape[0] + len(corrections)))
+
+        elif self.corr_type == 'add-contrast-fp':
+            # NOTE make sure to set fit_intercept=False!
+            words = np.array(self.processed_docs[i].split())
+
+            correction = ' '.join(word for word in words
+                                  if word not in fp_words)
+            corrections = [correction]
 
             X_corrections = self.vectorizer.transform(corrections)
             X_corrections = self.normalizer.transform(X_corrections,
