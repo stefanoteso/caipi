@@ -188,8 +188,8 @@ def caipi(problem,
     learner.fit(problem.X[known_examples],
                 problem.y[known_examples])
 
-    perfs, params = [], []
-    X_corr, y_corr = None, None
+    corrections = set()
+    perfs, instant_perfs, params = [], [], []
     for t in range(max_iters):
 
         if len(known_examples) >= len(train_examples):
@@ -206,53 +206,42 @@ def caipi(problem,
         pred_expl = problem.explain(learner, known_examples, i, pred_y) \
                     if explain else None
 
+        print('evaluating on query...')
+        instant_perf = problem.eval(learner,
+                                    known_examples,
+                                    [i],
+                                    [i],
+                                    t=t,
+                                    basename=basename + '_instant')
+        instant_perfs.append(instant_perf)
+
         true_y = problem.query_label(i)
         known_examples.append(i)
 
-        raise NotImplementedError()
-
         if explain:
-            X, y = problem.query_corrections(problem.X[train_examples],
-                                             problem.y[train_examples],
-                                             X_corr,
-                                             y_corr,
-                                             i, pred_y, pred_expl,
-                                             X_test_tuples)
+            new_corrections = problem.query_corrections(i, pred_y, pred_expl,
+                                                        X_test_tuples)
+            corrections.update(new_corrections)
 
-        per_class = np.array([len(y_known[y_known == label])
-                            for label in range(len(problem.class_names))]) \
-                    / len(y_known)
-        balance = np.max(per_class) / np.min(per_class)
-        learner.fit(X_known, y_known)
+        learner.fit(problem.X[known_examples + list(corrections)],
+                    problem.y[known_examples + list(corrections)])
         params.append(learner.get_params())
 
         do_eval = eval_iters > 0 and t % eval_iters == 0
-        #print('evaluating on known...')
-        #known_perf = problem.eval(learner,
-        #                    known_examples,
-        #                    known_examples,
-        #                    known_examples if do_eval else None,
-        #                    t=t, basename=basename)
-        known_perf = None
+
         print('evaluating on test|eval...')
         perf = problem.eval(learner,
-                            known_examples,
+                            train_examples,
                             test_examples,
                             eval_examples if do_eval else None,
                             t=t, basename=basename)
-        n_corrections = len(y_corr) if y_corr is not None else 0
-        perf += (n_corrections,)
+        perf += (len(corrections),)
         perfs.append(perf)
 
-        # print('selecting model...')
-        #if t >=5 and t % 5 == 0:
-        #    learner.select_model(vstack([X_corr, problem.X[known_examples]]),
-        #                         hstack([y_corr, problem.y[known_examples]]))
-
         params_for_print = np.round(learner.get_params(), decimals=1)
-        print('{t:3d} : model = {params_for_print},  perfs on known = {known_perf},  perfs on test = {perf},  balance = {balance}'.format(**locals()))
+        print('{t:3d} : model = {params_for_print},  perfs on query = {instant_perf},  perfs on test = {perf}'.format(**locals()))
 
-    return perfs, params
+    return perfs, instant_perfs, params
 
 
 def eval_interactive(problem, args, rng=None):
@@ -264,7 +253,7 @@ def eval_interactive(problem, args, rng=None):
     folds = StratifiedKFold(n_splits=args.n_folds, random_state=0) \
                 .split(problem.y, problem.y)
 
-    perfs, params = [], []
+    perfs, instant_perfs, params = [], [], []
     for k, (train_examples, test_examples) in enumerate(folds):
         print()
         print(80 * '=')
@@ -280,21 +269,24 @@ def eval_interactive(problem, args, rng=None):
 
         learner = LEARNERS[args.learner](problem, strategy=args.strategy, rng=0)
 
-        perf, param = caipi(problem,
-                            learner,
-                            train_examples,
-                            known_examples,
-                            test_examples,
-                            eval_examples,
-                            max_iters=args.max_iters,
-                            start_expl_at=args.start_expl_at,
-                            eval_iters=args.eval_iters,
-                            basename=basename + '_fold={}'.format(k),
-                            rng=rng)
+        perf, instant_perf, param = \
+            caipi(problem,
+                  learner,
+                  train_examples,
+                  known_examples,
+                  test_examples,
+                  eval_examples,
+                  max_iters=args.max_iters,
+                  start_expl_at=args.start_expl_at,
+                  eval_iters=args.eval_iters,
+                  basename=basename + '_fold={}'.format(k),
+                  rng=rng)
         perfs.append(perf)
+        instant_perfs.append(instant_perf)
         params.append(param)
 
-        dump(basename + '.pickle', {'args': args, 'perfs': perfs})
+        dump(basename + '.pickle',
+             {'args': args, 'perfs': perfs, 'instant_perfs': instant_perfs})
         dump(basename + '-params.pickle', params)
 
 
