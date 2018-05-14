@@ -67,15 +67,15 @@ def draw(args):
     # perfs has shape: [n_pickles, n_folds, n_iters, n_measures]
     if perfs.shape[-1] == 3:
         to_title = [
-            'Pred. F1',
-            'Conf. Rec.',
-            '# of corrections',
+            'Predictive F1',
+            'Confictive Rec.',
+            '# Corrections',
         ]
     else:
         to_title = [
-            'Pred. Pr', 'Pred. Rc', 'Pred. F1',
-            'Expl. Pr', 'Expl. Rc', 'Expl. F1',
-            '# of corrections',
+            'Predictive Pr', 'Predictive Rc', 'Predictive F1',
+            'Explanatory Pr', 'Explanatory Rc', 'Explanatory F1',
+            '# Corrections',
         ]
 
     for i_measure in range(perfs.shape[-1]):
@@ -84,8 +84,9 @@ def draw(args):
         print(perfs[:, :, :, i_measure])
 
         fig, ax = plt.subplots(1, 1)
-        ax.set_title(to_title[i_measure])
-        ax.set_xlabel('# iterations')
+        ax.set_title(to_title[i_measure], fontsize=16)
+        ax.set_xlabel('Iterations', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=16)
         if to_title[i_measure].startswith('Pred.'):
             ax.set_ylim(args.min_pred_f1, 1.05)
         else:
