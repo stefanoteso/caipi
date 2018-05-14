@@ -384,9 +384,11 @@ class ColorsProblem(TabularProblem):
 
         return list(feat_to_coeff.items())
 
-    def query_corrections(self, X_corr, y_corr, i, pred_y, pred_expl, X_test):
-        if pred_expl is None or pred_y != self.y[i]:
-            return X_corr, y_corr
+    def query_corrections(self, i, pred_y, pred_expl, X_test):
+        if pred_expl is None:
+            return set()
+        if pred_y != self.y[i]:
+            return set()
 
         z = self.Z[i]
         true_feats = {feat for (feat, _) in self.z_to_expl(z)}
@@ -394,7 +396,7 @@ class ColorsProblem(TabularProblem):
 
         ALL_VALUES = set(range(4))
 
-        Z_new_corr = []
+        Z_corr = []
         for feat in pred_feats - true_feats:
             feat, lb, ub = self._feat_to_bounds(feat)
             r, c = feat.split(',')
@@ -407,18 +409,20 @@ class ColorsProblem(TabularProblem):
                     continue
                 if tuple(z_corr) in X_test:
                     continue
-                Z_new_corr.append(z_corr)
+                Z_corr.append(z_corr)
 
-        if not len(Z_new_corr):
-            return X_corr, y_corr
+        if not len(Z_corr):
+            return set()
 
-        X_new_corr = np.array([self.z_to_x(z_corr) for z_corr in Z_new_corr],
-                              dtype=np.float64)
-        y_new_corr = np.array([pred_y for _ in Z_new_corr], dtype=np.int8)
+        X_corr = np.array([self.z_to_x(z_corr) for z_corr in Z_corr],
+                          dtype=np.float64)
+        y_corr = np.array([pred_y for _ in Z_corr], dtype=np.int8)
 
-        X_corr = vstack([X_corr, X_new_corr])
-        y_corr = hstack([y_corr, y_new_corr])
-        return X_corr, y_corr
+        n_examples = len(self.y)
+        self.X = vstack([self.X, X_corr])
+        self.y = hstack([self.y, y_corr])
+
+        return set(range(n_examples, len(self.y)))
 
     def save_expl(self, path, i, pred_y, expl):
         z = self.Z[i]
