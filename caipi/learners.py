@@ -60,6 +60,7 @@ class LinearLearner(ActiveLearner):
             dm = pm = LogisticRegression(C=C or 1000,
                                          penalty='l2',
                                          multi_class='ovr',
+                                         fit_intercept=False,
                                          random_state=0)
 
         elif model == 'svm':
