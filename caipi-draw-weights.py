@@ -58,11 +58,15 @@ if n_features == 300:
         ax.fill_between(x, y - yerr, y + yerr, alpha=0.35, linewidth=0)
 
     fig, ax = plt.subplots(1, 1)
-    plot_both(ax, results, 0, 'coeff. rule 0')
-    plot_both(ax, results, 1, 'coeff. rule 1')
-    plot_both(ax, results, 2, 'residual', linestyle=':')
+    ax.set_title('Rule Coefficients and Residual', fontsize=16)
+    ax.set_xlabel('Iteration', fontsize=16)
+    ax.tick_params(axis='both', which='major', labelsize=16)
+    plot_both(ax, results, 0, 'Coeff. Rule 0')
+    plot_both(ax, results, 1, 'Coeff. Rule 1')
+    plot_both(ax, results, 2, 'Residual', linestyle=':')
 
     legend = ax.legend(loc='upper right',
+                       fontsize=16,
                        shadow=False)
 
     fig.savefig(sys.argv[1] + '__coeff', bbox_inches='tight', pad_inches=0)
