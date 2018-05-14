@@ -235,6 +235,7 @@ def caipi(problem,
                             test_examples,
                             eval_examples if do_eval else None,
                             t=t, basename=basename)
+        perf = tuple(list(perf) + list([len(corrections)]))
         perfs.append(perf)
 
         params_for_print = np.round(learner.get_params(), decimals=1)
