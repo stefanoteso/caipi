@@ -53,12 +53,13 @@ def draw(args):
     pickle_data, instant_data, pickle_args = [], [], []
     for path in args.pickles:
         data = load(path)
-        pickle_data.append(data['perfs'])
-        instant_data.append(data['instant_perfs'])
+        pickle_data.append(np.array(data['perfs']))
+        instant_data.append(np.array(data['instant_perfs']))
         pickle_args.append(data['args'])
 
     min_folds = min(list(len(datum) for datum in pickle_data))
-    perfs = np.array([datum[:min_folds] for datum in pickle_data])
+    min_measures = min(datum.shape[-1] for datum in pickle_data)
+    perfs = np.array([datum[:min_folds,:,:min_measures] for datum in pickle_data])
     instant_perfs = np.array([datum[:min_folds] for datum in instant_data])
 
     # perfs have shape: [n_pickles, n_folds, n_iters, n_measures]
