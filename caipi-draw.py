@@ -50,16 +50,18 @@ def draw(args):
     plt.style.use('ggplot')
     np.set_printoptions(precision=2, linewidth=80, threshold=np.nan)
 
-    pickle_data, pickle_args = [], []
+    pickle_data, instant_data, pickle_args = [], [], []
     for path in args.pickles:
         data = load(path)
         pickle_data.append(data['perfs'])
+        instant_data.append(data['instant_perfs'])
         pickle_args.append(data['args'])
 
     min_folds = min(list(len(datum) for datum in pickle_data))
     perfs = np.array([datum[:min_folds] for datum in pickle_data])
+    instant_perfs = np.array([datum[:min_folds] for datum in instant_data])
 
-    # perfs has shape: [n_pickles, n_folds, n_iters, n_measures]
+    # perfs have shape: [n_pickles, n_folds, n_iters, n_measures]
     if perfs.shape[-1] == 3:
         to_title = [
             'Predictive F1',
@@ -72,6 +74,11 @@ def draw(args):
             'Explanatory Pr', 'Explanatory Rc', 'Explanatory F1',
             '# Corrections',
         ]
+
+    to_title_inst = [
+        'Inst. Predictive Pr', 'Inst. Predictive Rc', 'Inst. Predictive F1',
+        'Inst. Explanatory Pr', 'Inst. Explanatory Rc', 'Inst. Explanatory F1',
+    ]
 
     for i_measure in range(perfs.shape[-1]):
 
@@ -109,6 +116,44 @@ def draw(args):
                            shadow=False)
 
         fig.savefig(args.basename + '_{}.png'.format(i_measure),
+                    bbox_inches='tight', pad_inches=0)
+
+    for i_measure in range(instant_perfs.shape[-1]):
+
+        #print(to_title[i_measure])
+        #print(perfs[:, :, :, i_measure])
+
+        fig, ax = plt.subplots(1, 1)
+        ax.set_title(to_title_inst[i_measure], fontsize=16)
+        ax.set_xlabel('Iterations', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=16)
+        if to_title[i_measure].startswith('Predictive'):
+            ax.set_ylim(args.min_pred_val, args.max_pred_val)
+        else:
+            ax.xaxis.set_ticks([0, 1, 2, 3, 4, 5])
+            ax.xaxis.set_ticklabels([0, 20, 40, 60, 80, 100])
+
+        for i_pickle in range(instant_perfs.shape[0]):
+            perf = instant_perfs[i_pickle, :, :, i_measure]
+
+            y = np.mean(perf, axis=0)
+            yerr = np.std(perf, axis=0) / np.sqrt(perf.shape[0])
+            if -1 in y:
+                yerr = yerr[y != -1]
+                y = y[y != -1]
+            x = np.arange(y.shape[0])
+
+            label, color, style, marker = get_style(pickle_args[i_pickle])
+            ax.plot(x, y, label=label, color=color,
+                    linestyle=style, linewidth=2)
+            ax.fill_between(x, y - yerr, y + yerr, color=color,
+                            alpha=0.35, linewidth=0)
+
+        legend = ax.legend(loc='lower right',
+                           fontsize=16,
+                           shadow=False)
+
+        fig.savefig(args.basename + '_instant_{}.png'.format(i_measure),
                     bbox_inches='tight', pad_inches=0)
 
 
