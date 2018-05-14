@@ -6,15 +6,14 @@ import numpy as np
 import spacy
 from os import listdir
 from os.path import join
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_selection import mutual_info_classif
-import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import SGDClassifier
 from caipi import load, dump
 
-N_DOCUMENTS_PER_CLASS = np.nan
-METHOD = 'local'
 
-np.set_printoptions(threshold=np.nan)
+N_DOCUMENTS_PER_CLASS = 10
+METHOD = 'global'
+
 
 # Make sure to download the dataset from:
 #
@@ -98,6 +97,8 @@ def read_docs(base_path, label):
     return docs, rats
 
 
+np.set_printoptions(threshold=np.nan)
+
 try:
     print('Loading...')
     y, docs, rats = load('reviews.pickle')
@@ -113,38 +114,27 @@ except:
     rats = pos_rats + neg_rats
     dump('reviews.pickle', (y, docs, rats))
 
-vectorizer = CountVectorizer(binary=True)
-X = vectorizer.fit_transform(docs)
+vectorizer = TfidfVectorizer(lowercase=False)
+X = vectorizer.fit_transform(docs).toarray()
+vocabulary = np.array(vectorizer.get_feature_names())
 
-mi = mutual_info_classif(X, y, discrete_features=True, random_state=0)
-word_to_mi = {word: m for word, m in zip(vectorizer.get_feature_names(), mi)}
+model = SGDClassifier(penalty='l1', random_state=0).fit(X, y)
+coef = np.abs(model.coef_.ravel())
+selected = [i for i in coef.argsort()[::-1]
+            if coef[i] >= 1e-9]
+relevant_words = set(vocabulary[selected])
 
-
-if METHOD == 'global':
-    vocabulary = set()
-    for doc in docs:
-        vocabulary.update(doc.split())
-    vocabulary = list(sorted(vocabulary))
-
-    mi_vocabulary = np.array([word_to_mi.get(word, 0.0) for word in vocabulary])
-    mr_indices = mi_vocabulary.argsort()[::-1][:int(len(vocabulary) / 10)]
-    relevant_words = set(vocabulary[i] for i in range(len(vocabulary))
-                         if i in mr_indices)
+print('feature selector acc =', model.score(X, y))
+print('# words =', len(vocabulary))
+print('# relevant words =', len(relevant_words))
 
 rats = []
 for doc in docs:
 
-    if METHOD == 'local':
-        words = list(sorted(set(doc.split())))
-        mi_words = np.array([word_to_mi.get(word, 0.0) for word in words])
-        relevant_indices = mi_words.argsort()[::-1][:10]
-        relevant_words = set(words[i] for i in range(len(words))
-                             if i in relevant_indices)
-
     words = doc.split()
     relevant_indices = [i for i in range(len(words))
                         if words[i] in relevant_words]
-    print(len(relevant_indices))
+    print('# relevant in doc =', len(relevant_indices))
     mask = np.zeros((1, len(words)))
     mask[0, relevant_indices] = 1
     rats.append(mask)
