@@ -58,9 +58,11 @@ def draw(args):
         pickle_args.append(data['args'])
 
     min_folds = min(list(len(datum) for datum in pickle_data))
+    print('# folds =', min_folds)
     min_measures = min(datum.shape[-1] for datum in pickle_data)
     perfs = np.array([datum[:min_folds,:,:min_measures] for datum in pickle_data])
     instant_perfs = np.array([datum[:min_folds] for datum in instant_data])
+    eval_iters = pickle_args[0].eval_iters
 
     # perfs have shape: [n_pickles, n_folds, n_iters, n_measures]
     if perfs.shape[-1] == 3:
@@ -93,8 +95,7 @@ def draw(args):
         if to_title[i_measure].startswith('Predictive'):
             ax.set_ylim(args.min_pred_val, args.max_pred_val)
         else:
-            ax.xaxis.set_ticks([0, 1, 2, 3, 4, 5])
-            ax.xaxis.set_ticklabels([0, 20, 40, 60, 80, 100])
+            pass
 
         for i_pickle in range(perfs.shape[0]):
             perf = perfs[i_pickle, :, :, i_measure]
@@ -129,16 +130,18 @@ def draw(args):
         ax.set_xlabel('Iterations', fontsize=16)
         ax.tick_params(axis='both', which='major', labelsize=16)
         if to_title[i_measure].startswith('Predictive'):
-            ax.set_ylim(args.min_pred_val, args.max_pred_val)
-        else:
-            ax.xaxis.set_ticks([0, 1, 2, 3, 4, 5])
-            ax.xaxis.set_ticklabels([0, 20, 40, 60, 80, 100])
+            ax.set_ylim(args.min_inst_pred_val, args.max_inst_pred_val)
+        elif eval_iters > 0:
+            ticklocs = ax.xaxis.get_ticklocs()
+            ax.xaxis.set_ticklabels(ticklocs * eval_iters)
 
         for i_pickle in range(instant_perfs.shape[0]):
             perf = instant_perfs[i_pickle, :, :, i_measure]
 
-            y = np.mean(perf, axis=0)
-            yerr = np.std(perf, axis=0) / np.sqrt(perf.shape[0])
+            y = np.cumsum(perf, axis=1)
+            y = np.mean(y, axis=0)
+            y *= 1 / np.arange(1, len(y) + 1)
+            yerr = np.std(y, axis=0) / np.sqrt(y.shape[0])
             if -1 in y:
                 yerr = yerr[y != -1]
                 y = y[y != -1]
@@ -170,6 +173,10 @@ if __name__ == '__main__':
                         help='minimum pred. score')
     parser.add_argument('--max-pred-val', type=float, default=1.05,
                         help='minimum pred. score')
+    parser.add_argument('--min-inst-pred-val', type=float, default=0,
+                        help='minimum instantaneous pred. score')
+    parser.add_argument('--max-inst-pred-val', type=float, default=1.05,
+                        help='minimum instantaneous pred. score')
     parser.add_argument('--legend', action='store_true',
                         help='whether to draw the legend')
     args = parser.parse_args()
