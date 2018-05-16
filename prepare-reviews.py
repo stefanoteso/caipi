@@ -11,7 +11,7 @@ from sklearn.linear_model import SGDClassifier
 from caipi import load, dump
 
 
-N_DOCUMENTS_PER_CLASS = 10
+N_DOCUMENTS_PER_CLASS = np.nan
 METHOD = 'global'
 
 
@@ -120,8 +120,7 @@ vocabulary = np.array(vectorizer.get_feature_names())
 
 model = SGDClassifier(penalty='l1', random_state=0).fit(X, y)
 coef = np.abs(model.coef_.ravel())
-selected = [i for i in coef.argsort()[::-1]
-            if coef[i] >= 1e-9]
+selected = coef.argsort()[-len(vocabulary) // 5:]
 relevant_words = set(vocabulary[selected])
 
 print('feature selector acc =', model.score(X, y))
