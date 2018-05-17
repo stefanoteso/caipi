@@ -62,7 +62,7 @@ def draw(args):
     min_measures = min(datum.shape[-1] for datum in pickle_data)
     perfs = np.array([datum[:min_folds,:,:min_measures] for datum in pickle_data])
     instant_perfs = np.array([datum[:min_folds] for datum in instant_data])
-    eval_iters = pickle_args[0].eval_iters
+    max_iters = pickle_args[0].max_iters
 
     # perfs have shape: [n_pickles, n_folds, n_iters, n_measures]
     if perfs.shape[-1] == 3:
@@ -95,7 +95,10 @@ def draw(args):
         if to_title[i_measure].startswith('Predictive'):
             ax.set_ylim(args.min_pred_val, args.max_pred_val)
         else:
-            pass
+            n_ticks = len(ax.get_xticklabels())
+            eval_iters = max_iters // n_ticks
+            labels = list(range(0, max_iters, eval_iters))
+            ax.set_xticklabels(['dunno'] + [str(l) for l in labels])
 
         for i_pickle in range(perfs.shape[0]):
             perf = perfs[i_pickle, :, :, i_measure]
@@ -132,8 +135,7 @@ def draw(args):
         if to_title[i_measure].startswith('Predictive'):
             ax.set_ylim(args.min_inst_pred_val, args.max_inst_pred_val)
         elif eval_iters > 0:
-            ticklocs = ax.xaxis.get_ticklocs()
-            ax.xaxis.set_ticklabels(ticklocs * eval_iters)
+            pass
 
         for i_pickle in range(instant_perfs.shape[0]):
             perf = instant_perfs[i_pickle, :, :, i_measure]
