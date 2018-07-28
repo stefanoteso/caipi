@@ -1,14 +1,11 @@
-- toy
-    - DONE
+- Evaluate noisy explanations
 
-- fashion:
-    - DONE
-    - illustrate the input gradients for NC, CE and IG
+    - Check the level of noise when system explanations are
+      provided vs. the user is asked to provide explanations
+      from scratch
 
-- colors
-    - rerun L1 and L2 SVM with instantaneous accuracy and explanation accuracy
+- Evaluate performance while varying C, especially with noise
 
-- reviews
-    - make passive work by trimming away irrelevant features
-    - make active work
-    - possibly use an MLP (17s training on the full training set)
+- Larger scale user study with realistic dataset
+
+- Larger scale offline experiment with realistic dataset?
