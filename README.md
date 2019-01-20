@@ -1,8 +1,7 @@
 Caipi
 =====
 
-Caipirinha turns LIME into trust!  An implementation of the Caipi framework
-for interactive explanatory learning.
+An implementation of the CAIPI framework for interactive explanatory learning.
 
 
 Required Packages
@@ -22,7 +21,7 @@ packages:
 Usage
 -----
 
-You can run Caipi as follows:
+You can run CAIPI as follows:
 ```bash
     python3 caipi.py $problem $learner $example-selection-strategy
 ```
