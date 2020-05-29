@@ -342,7 +342,7 @@ def main():
     args = parser.parse_args()
 
     np.seterr(all='raise')
-    np.set_printoptions(precision=3, linewidth=80, threshold=np.nan)
+    np.set_printoptions(precision=3, linewidth=80, threshold=np.inf)
     np.random.seed(args.seed)
 
     rng = np.random.RandomState(args.seed)
