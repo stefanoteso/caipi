@@ -48,7 +48,7 @@ def get_style(args):
 
 def draw(args):
     plt.style.use('ggplot')
-    np.set_printoptions(precision=2, linewidth=80, threshold=np.nan)
+    np.set_printoptions(precision=2, linewidth=80, threshold=np.inf)
 
     pickle_data, instant_data, pickle_args = [], [], []
     for path in args.pickles:
