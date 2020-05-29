@@ -1,24 +1,16 @@
 import numpy as np
-import blessings
 import matplotlib.pyplot as plt
 import gzip
 from os.path import join
 from matplotlib.cm import get_cmap
-from time import time
 from itertools import product
-from sklearn.datasets import fetch_mldata
-from skimage.color import gray2rgb, rgb2gray, hsv2rgb, rgb2hsv
+from skimage.color import gray2rgb, rgb2gray
 from sklearn.linear_model import Ridge
-from sklearn.pipeline import make_pipeline
-from sklearn.metrics import precision_recall_fscore_support as prfs
 from sklearn.utils import check_random_state
 from lime.lime_image import LimeImageExplainer
 from lime.wrappers.scikit_image import SegmentationAlgorithm
 
 from . import Problem, PipeStep, densify, vstack, hstack
-
-
-_TERM = blessings.Terminal()
 
 
 class ImageProblem(Problem):
