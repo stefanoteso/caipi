@@ -54,7 +54,10 @@ def draw(args):
     for path in args.pickles:
         data = load(path)
         pickle_data.append(np.array(data['perfs']))
-        instant_data.append(np.array(data['instant_perfs']))
+        try:
+            instant_data.append(np.array(data['instant_perfs']))
+        except KeyError:
+            pass
         pickle_args.append(data['args'])
 
     min_folds = min(list(len(datum) for datum in pickle_data))
@@ -122,6 +125,10 @@ def draw(args):
 
         fig.savefig(args.basename + '_{}.png'.format(i_measure),
                     bbox_inches='tight', pad_inches=0)
+
+    if not len(instant_perfs):
+        print('Your pickle file does not have instant perfs, skipped.')
+        return
 
     for i_measure in range(instant_perfs.shape[-1]):
 
