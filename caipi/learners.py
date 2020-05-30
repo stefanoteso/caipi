@@ -88,7 +88,7 @@ class LinearLearner(ActiveLearner):
                                random_state=0)
 
         if pm is None:
-            cv = StratifiedKFold(random_state=0)
+            cv = StratifiedKFold(shuffle=True, random_state=0)
             pm = CalibratedClassifierCV(dm, method='sigmoid', cv=cv)
 
         self._decision_model = dm

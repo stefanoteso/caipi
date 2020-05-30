@@ -250,7 +250,7 @@ def eval_interactive(problem, args, rng=None):
     rng = check_random_state(args.seed)
     basename = _get_basename(args)
 
-    folds = StratifiedKFold(n_splits=args.n_folds, random_state=0) \
+    folds = StratifiedKFold(n_splits=args.n_folds, shuffle=True, random_state=0) \
                 .split(problem.y, problem.y)
 
     perfs, instant_perfs, params = [], [], []
