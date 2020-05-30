@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.calibration import CalibratedClassifierCV
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import check_random_state
 
 from .utils import densify, vstack, hstack
